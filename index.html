@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CEP Assistant — Sistema de Triagem e Validação Ética</title>
+  
+  <!-- Bibliotecas Locais (Zero Dependência de Internet / 100% Offline) -->
+  <script src="lib/vue.global.prod.js"></script>
+  <script>
+    if (typeof Vue === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"><\/script>');
+    }
+  </script>
+  
+  <script src="lib/pdf.min.js"></script>
+  <script>
+    if (typeof pdfjsLib === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\/script>');
+    }
+  </script>
+  
+  <script src="lib/mammoth.browser.min.js"></script>
+  <script>
+    if (typeof mammoth === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"><\/script>');
+    }
+  </script>
+
+  <!-- Estilos de Plataforma Moderna Edge-to-Edge -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <script>
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+    }
+  </script>
+</head>
+<body>
+
+  <div id="app">
+    
+    <!-- ========================================================================= -->
+    <!-- BARRA SUPERIOR DE PLATAFORMA (APP BAR)                                    -->
+    <!-- ========================================================================= -->
+    <header class="app-topbar">
+      <div class="brand-identity">
+        <div class="brand-mark">CEP</div>
+        <span class="brand-title">{{ t('appName') }}</span>
+        <span class="brand-subtitle">{{ config.nomeCep || t('appSubtitle') }}</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <!-- Indicador de Calendário Regimental -->
+        <div style="font-size: 12px; color: rgba(255,255,255,0.88); display: flex; align-items: center; gap: 12px;">
+          <span>Reunião: <strong style="color: #fff;">{{ calculatedDatesInfo.reuniao }}</strong></span>
+          <span style="opacity: 0.4;">|</span>
+          <span>Coleta (+30d): <strong style="color: #fff;">{{ calculatedDatesInfo.coleta }}</strong></span>
+        </div>
+
+        <!-- Botão de Modo Claro / Escuro -->
+        <button @click="toggleDarkMode" 
+                style="background: rgba(255,255,255,0.14); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.22); padding: 4px 10px; border-radius: 5px; font-size: 11.5px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+          <span>{{ isDarkMode ? '☀ Modo Claro' : '☾ Modo Escuro' }}</span>
+        </button>
+
+        <!-- Seletor de Idioma PT / ES -->
+        <div style="display: flex; background: rgba(0,0,0,0.22); padding: 2px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.18);">
+          <button @click="setLanguage('pt-BR')" 
+                  :style="{ background: currentLang === 'pt-BR' ? '#FFFFFF' : 'transparent', color: currentLang === 'pt-BR' ? '#1B365D' : '#FFFFFF' }"
+                  style="border: none; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; cursor: pointer;">
+            PT
+          </button>
+          <button @click="setLanguage('es')" 
+                  :style="{ background: currentLang === 'es' ? '#FFFFFF' : 'transparent', color: currentLang === 'es' ? '#1B365D' : '#FFFFFF' }"
+                  style="border: none; padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; cursor: pointer;">
+            ES
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ========================================================================= -->
+    <!-- SUB-BARRA DE AÇÕES GLOBAIS                                                -->
+    <!-- ========================================================================= -->
+    <nav class="app-subbar">
+      <div class="toolbar-cluster">
+        <!-- Conectar Pasta Base -->
+        <button @click="chooseDirectory" class="btn-ui" :class="{ 'btn-ui-primary': !folderConnected }">
+          <svg class="icon-svg" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          <span>{{ folderConnected ? t('changeFolder') : t('connectFolder') }}</span>
+        </button>
+
+        <!-- Novo Projeto -->
+        <button @click="openNewProjectModal" class="btn-ui btn-ui-primary">
+          <svg class="icon-svg" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>{{ t('newProjectBtn') }}</span>
+        </button>
+
+        <!-- Voltar ao Histórico (quando na Mesa) -->
+        <button v-if="currentView === 'workspace'" @click="returnToHistoryView" class="btn-ui">
+          <svg class="icon-svg" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          <span>{{ currentLang === 'es' ? 'Historial de Proyectos' : 'Histórico de Projetos' }}</span>
+        </button>
+
+        <!-- Alternador entre Histórico e Painel de Indicadores -->
+        <div v-if="currentView === 'history'" class="subbar-view-switcher">
+          <button @click="mainScreenView = 'historico'" class="view-switch-btn" :class="{ 'active': mainScreenView === 'historico' }">
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            <span>{{ t('tabHistorico') }}</span>
+          </button>
+          <button @click="mainScreenView = 'dashboard'" class="view-switch-btn" :class="{ 'active': mainScreenView === 'dashboard' }">
+            <svg class="icon-svg" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            <span>{{ t('tabDashboard') }}</span>
+          </button>
+        </div>
+
+        <!-- Botão Emitir Caderno / Relatório PDF da Reunião -->
+        <button v-if="currentView === 'history'" @click="openMonthlyReportModal()" class="btn-ui" :disabled="isGeneratingReport" title="Gera o caderno executivo mensal e fichas individuais dos projetos para impressão ou PDF">
+          <svg class="icon-svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <span>{{ isGeneratingReport ? 'Gerando...' : t('reportBtn') }}</span>
+        </button>
+
+        <!-- Configurações Institucionais e Padrões de Pendências -->
+        <button @click="openConfigModal('instituicao')" class="btn-ui">
+          <svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <span>{{ t('configBtn') }}</span>
+        </button>
+
+        <!-- Salvar Projeto e Gerar Pastas (Mesa de Trabalho) -->
+        <button v-if="currentView === 'workspace'" @click="saveCurrentProject" :disabled="isSaving" class="btn-ui btn-ui-save" title="Salvar Projeto e Gerar Pastas da Rodada">
+          <svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+          <span>{{ isSaving ? t('saving') : (currentLang === 'es' ? 'Guardar y Generar Carpetas' : 'Salvar Projeto e Gerar Pastas') }}</span>
+        </button>
+      </div>
+
+      <div class="toolbar-cluster">
+        <div style="font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+          <span :style="{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: folderConnected ? '#0F6E56' : '#B45309', display: 'inline-block' }"></span>
+          <span>{{ currentLang === 'es' ? 'Directorio:' : 'Diretório:' }}</span>
+          <strong style="color: var(--text-primary); font-family: 'JetBrains Mono', monospace; font-size: 11.5px;">
+            {{ folderConnected ? folderName : (currentLang === 'es' ? 'No conectado' : 'Não conectado') }}
+          </strong>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ========================================================================= -->
+    <!-- TELA 1A: HISTÓRICO DE PROJETOS (DATA TABLE EDGE-TO-EDGE)                  -->
+    <!-- ========================================================================= -->
+    <main v-if="currentView === 'history' && mainScreenView === 'historico'" class="history-view">
+      
+      <!-- Barra de Filtro e Resumo -->
+      <div class="history-filter-bar">
+        <div>
+          <h2 style="font-size: 15px; font-weight: 600; color: var(--text-primary);">
+            {{ t('historyTitle') }}
+            <span style="font-weight: 400; color: var(--text-muted); font-size: 13px; margin-left: 6px;">({{ filteredProjects.length }})</span>
+          </h2>
+          <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+            {{ t('historySubtitle') }}
+          </p>
+        </div>
+
+        <!-- Filtros Rápidos por Status -->
+        <div class="status-filter-pills">
+          <button @click="statusFilter = 'todos'" class="filter-pill" :class="{ 'active': statusFilter === 'todos' }">
+            <span>{{ t('filterTodos') }}</span>
+            <span class="pill-count">{{ countAllProjects }}</span>
+          </button>
+          <button @click="statusFilter = 'em_analise'" class="filter-pill" :class="{ 'active': statusFilter === 'em_analise' }">
+            <span>{{ t('statusEmAnalise') }}</span>
+            <span class="pill-count">{{ countEmAnaliseProjects }}</span>
+          </button>
+          <button @click="statusFilter = 'em_pauta'" class="filter-pill" :class="{ 'active': statusFilter === 'em_pauta' }">
+            <span>{{ t('statusEmPauta') }}</span>
+            <span class="pill-count">{{ countEmPautaProjects }}</span>
+          </button>
+          <button @click="statusFilter = 'aprovado'" class="filter-pill" :class="{ 'active': statusFilter === 'aprovado' }">
+            <span>{{ t('statusAprovado') }}</span>
+            <span class="pill-count">{{ countAprovadoProjects }}</span>
+          </button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <input v-model="searchFilter" type="text" :placeholder="t('searchPlaceholder')" class="input-ui" style="width: 280px;">
+          <button v-if="searchFilter" @click="searchFilter = ''" class="btn-ui btn-ui-sm">Limpar</button>
+        </div>
+      </div>
+
+      <!-- Tabela Contínua com Coluna de Status -->
+      <div class="history-table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th @click="sortProjects('data_primeira_submissao')" style="width: 130px;">
+                {{ t('colSubmissao') }}
+                <span v-if="sortField === 'data_primeira_submissao'">{{ sortAsc ? '↑' : '↓' }}</span>
+              </th>
+              <th @click="sortProjects('data_ultima_modificacao')" style="width: 150px;">
+                {{ t('colModificacao') }}
+                <span v-if="sortField === 'data_ultima_modificacao'">{{ sortAsc ? '↑' : '↓' }}</span>
+              </th>
+              <th @click="sortProjects('status')" style="width: 140px;">
+                {{ t('colStatus') }}
+                <span v-if="sortField === 'status'">{{ sortAsc ? '↑' : '↓' }}</span>
+              </th>
+              <th @click="sortProjects('instituicao')" style="width: 190px;">
+                {{ t('colInstituicao') }}
+                <span v-if="sortField === 'instituicao'">{{ sortAsc ? '↑' : '↓' }}</span>
+              </th>
+              <th @click="sortProjects('pesquisador')" style="width: 190px;">
+                {{ t('colPesquisador') }}
+                <span v-if="sortField === 'pesquisador'">{{ sortAsc ? '↑' : '↓' }}</span>
+              </th>
+              <th @click="sortProjects('titulo')">
+                {{ t('colProjeto') }}
+                <span v-if="sortField === 'titulo'">{{ sortAsc ? '↑' : '↓' }}</span>
+              </th>
+              <th @click="sortProjects('relator')" style="width: 150px;">
+                {{ t('colRelator') }}
+                <span v-if="sortField === 'relator'">{{ sortAsc ? '↑' : '↓' }}</span>
+              </th>
+              <th style="width: 110px; text-align: right;">{{ t('colAcoes') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="filteredProjects.length === 0">
+              <td colspan="8" style="text-align: center; padding: 64px 20px; color: var(--text-muted);">
+                <div style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-bottom: 12px;">{{ t('emptyHistory') }}</div>
+                <button @click="openNewProjectModal" class="btn-ui btn-ui-primary">
+                  {{ t('newProjectBtn') }}
+                </button>
+              </td>
+            </tr>
+            <tr v-for="proj in filteredProjects" :key="proj.id" @dblclick="openExistingProject(proj)"
+                :class="{ 'row-pauta': proj.status === 'em_pauta', 'row-aprovado': proj.status === 'aprovado' }"
+                style="cursor: pointer;">
+              <td style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--brand-primary);">
+                {{ formatDateBR(proj.data_primeira_submissao) }}
+              </td>
+              <td style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-secondary);">
+                {{ formatDateBR(proj.data_ultima_modificacao) }}
+                <span v-if="proj.rondas && proj.rondas.length > 1" class="badge-round" style="margin-left: 6px;" title="Quantidade de rodadas/submissões registradas">
+                  {{ proj.rondas.length }}
+                </span>
+              </td>
+              <td>
+                <span v-if="proj.status === 'em_pauta'" class="badge-status badge-status-pauta">
+                  <span class="badge-dot"></span>
+                  {{ t('statusEmPauta') }}
+                </span>
+                <span v-else-if="proj.status === 'aprovado'" class="badge-status badge-status-aprovado">
+                  <span class="badge-dot"></span>
+                  {{ t('statusAprovado') }}
+                </span>
+                <span v-else class="badge-status badge-status-analise">
+                  <span class="badge-dot"></span>
+                  {{ t('statusEmAnalise') }}
+                </span>
+              </td>
+              <td style="font-weight: 600;">{{ proj.instituicao }}</td>
+              <td style="font-weight: 500;">{{ proj.pesquisador }}</td>
+              <td style="color: var(--text-secondary);">{{ proj.titulo }}</td>
+              <td style="color: var(--text-secondary);">{{ proj.relator || '—' }}</td>
+              <td style="text-align: right;">
+                <button @click.stop="openExistingProject(proj)" class="btn-ui btn-ui-sm">
+                  {{ t('btnOpen') }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- TELA 1B: PAINEL DE GESTÃO E INDICADORES DO CEP                           -->
+    <!-- ========================================================================= -->
+    <main v-if="currentView === 'history' && mainScreenView === 'dashboard'" class="dashboard-view">
+      
+      <!-- Cabeçalho do Painel com Seletor de Período -->
+      <div class="dashboard-header">
+        <div>
+          <h2 style="font-size: 16px; font-weight: 700; color: var(--brand-primary); display: flex; align-items: center; gap: 8px;">
+            <svg class="icon-svg" style="width: 18px; height: 18px; color: var(--brand-accent);" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            {{ t('dashTitle') }}
+          </h2>
+          <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+            {{ t('dashSubtitle') }}
+          </p>
+        </div>
+
+        <!-- Seletor de Período -->
+        <div class="dashboard-periods">
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-right: 2px;">{{ t('periodLabel') }}</span>
+          <button @click="dashboardPeriod = 'ciclo'" class="period-pill-btn" :class="{ 'active': dashboardPeriod === 'ciclo' }">
+            {{ t('periodCiclo') }}
+          </button>
+          <button @click="dashboardPeriod = 'mes'" class="period-pill-btn" :class="{ 'active': dashboardPeriod === 'mes' }">
+            {{ t('periodMes') }}
+          </button>
+          <button @click="dashboardPeriod = 'trimestre'" class="period-pill-btn" :class="{ 'active': dashboardPeriod === 'trimestre' }">
+            {{ t('periodTrimestre') }}
+          </button>
+          <button @click="dashboardPeriod = 'semestre'" class="period-pill-btn" :class="{ 'active': dashboardPeriod === 'semestre' }">
+            {{ t('periodSemestre') }}
+          </button>
+          <button @click="dashboardPeriod = 'ano'" class="period-pill-btn" :class="{ 'active': dashboardPeriod === 'ano' }">
+            {{ t('periodAno') }}
+          </button>
+          <button @click="openMonthlyReportModal()" class="btn-ui btn-ui-save btn-ui-sm" style="margin-left: 8px; font-weight: 600;">
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span>{{ t('reportBtn') }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Banner de Próxima Reunião e Prazos -->
+      <div class="meeting-banner-card">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(27, 54, 93, 0.08); display: flex; align-items: center; justify-content: center; color: var(--brand-primary);">
+            <svg class="icon-svg" style="width: 22px; height: 22px;" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          </div>
+          <div>
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; color: var(--brand-accent);">
+              {{ currentLang === 'es' ? 'Próxima Reunión Ordinaria del Colegiado' : 'Próxima Reunião Ordinária do Colegiado' }}
+            </div>
+            <div style="font-size: 16px; font-weight: 700; color: var(--brand-primary); font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; gap: 8px;">
+              <span>{{ calculatedDatesInfo.proximaReuniao }}</span>
+              <span class="badge-status badge-status-pauta" style="font-size: 11px;">
+                {{ calculatedDatesInfo.diasAteReuniao }} {{ currentLang === 'es' ? 'días restantes' : 'dias restantes' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 20px; font-size: 12px; color: var(--text-secondary);">
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 11px;">{{ currentLang === 'es' ? 'Límite de Sumisión (Corte 20d):' : 'Limite de Submissão (Corte 20d):' }}</span>
+            <strong style="color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">{{ calculatedDatesInfo.dataLimiteEnvio }}</strong>
+          </div>
+          <div v-if="calculatedDatesInfo.reuniaoAnterior">
+            <span style="color: var(--text-muted); display: block; font-size: 11px;">{{ currentLang === 'es' ? 'Reunión Anterior:' : 'Reunião Anterior:' }}</span>
+            <strong style="color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">{{ calculatedDatesInfo.reuniaoAnterior }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid de 4 Cards de KPIs -->
+      <div class="kpi-grid">
+        <!-- 1. Novos Protocolos -->
+        <div class="kpi-card kpi-card-novos">
+          <div class="kpi-card-header">
+            <span>{{ t('kpiNovos') }}</span>
+            <svg class="icon-svg" style="width: 16px; height: 16px; color: #6366F1;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+          </div>
+          <div class="kpi-value">{{ dashboardMetrics.totalNovos }}</div>
+          <div class="kpi-sub">{{ dashboardMetrics.periodLabel }}</div>
+        </div>
+
+        <!-- 2. Em Diligência / Análise -->
+        <div class="kpi-card kpi-card-analise">
+          <div class="kpi-card-header">
+            <span>{{ t('kpiEmDiligencia') }}</span>
+            <svg class="icon-svg" style="width: 16px; height: 16px; color: #2563EB;" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          </div>
+          <div class="kpi-value">{{ dashboardMetrics.countAnalise }}</div>
+          <div class="kpi-sub">{{ currentLang === 'es' ? 'Pendencias pendientes de subsanar' : 'Com pendências ou sob triagem' }}</div>
+        </div>
+
+        <!-- 3. Em Pauta da Reunião -->
+        <div class="kpi-card kpi-card-pauta">
+          <div class="kpi-card-header">
+            <span>{{ t('kpiEmPauta') }}</span>
+            <svg class="icon-svg" style="width: 16px; height: 16px; color: #D97706;" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          </div>
+          <div class="kpi-value">{{ dashboardMetrics.countPauta }}</div>
+          <div class="kpi-sub">{{ currentLang === 'es' ? 'Listos para deliberar en Colegiado' : 'Sem pendências e pronto para pauta' }}</div>
+        </div>
+
+        <!-- 4. Aprovados -->
+        <div class="kpi-card kpi-card-aprovados">
+          <div class="kpi-card-header">
+            <span>{{ t('kpiAprovados') }}</span>
+            <svg class="icon-svg" style="width: 16px; height: 16px; color: #059669;" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
+          <div class="kpi-value">{{ dashboardMetrics.countAprovados }}</div>
+          <div class="kpi-sub">{{ currentLang === 'es' ? 'Aprobados y archivados en el período' : 'Deliberados e homologados no Colegiado' }}</div>
+        </div>
+      </div>
+
+      <!-- Gráficos & Medidores -->
+      <div class="dashboard-panels-grid">
+        
+        <!-- Painel 1: Top 5 Inconformidades Documentais -->
+        <div class="chart-panel">
+          <div class="chart-panel-title">
+            <span>{{ t('chartTopPendencias') }}</span>
+            <span style="font-size: 11px; font-weight: 500; color: var(--text-muted);">
+              {{ currentLang === 'es' ? 'Frecuencia relativa' : 'Frequência relativa' }}
+            </span>
+          </div>
+
+          <div class="meter-list">
+            <div v-for="item in dashboardMetrics.topInconformidades" :key="item.label" class="meter-item">
+              <div class="meter-header">
+                <span class="meter-label">{{ item.label }}</span>
+                <span class="meter-count">{{ item.count }} ({{ item.pct }}%)</span>
+              </div>
+              <div class="meter-track">
+                <div class="meter-fill" :style="{ width: item.pct + '%' }"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Painel 2: Deliberação Colegiada & Taxa de Aprovação -->
+        <div class="chart-panel">
+          <div class="chart-panel-title">
+            <span>{{ t('chartDistribuicao') }}</span>
+            <span style="font-size: 11px; font-weight: 500; color: var(--text-muted);">
+              {{ currentLang === 'es' ? 'Eficacia Colegiada' : 'Eficácia Colegiada' }}
+            </span>
+          </div>
+
+          <div class="approval-metric-box">
+            <div class="approval-pct">{{ dashboardMetrics.taxaAprovacao }}%</div>
+            <div class="approval-label">{{ t('kpiTaxaAprovacao') }}</div>
+            <p style="font-size: 11.5px; color: var(--text-muted); text-align: center; max-width: 320px; margin: 0;">
+              {{ currentLang === 'es' ? 'Porcentaje de protocolos aprobados sobre el total de proyectos deliberados en reunión.' : 'Percentual de protocolos aprovados em relação aos projetos deliberados em colegiado.' }}
+            </p>
+          </div>
+
+          <!-- Distribuição Resumida em Barra Visual -->
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); font-weight: 500;">
+              <span>{{ t('statusEmAnalise') }}: <strong style="color: #2563EB;">{{ dashboardMetrics.countAnalise }}</strong></span>
+              <span>{{ t('statusEmPauta') }}: <strong style="color: #D97706;">{{ dashboardMetrics.countPauta }}</strong></span>
+              <span>{{ t('statusAprovado') }}: <strong style="color: #059669;">{{ dashboardMetrics.countAprovados }}</strong></span>
+            </div>
+
+            <!-- Barra Multi-Segmentada Nativa SVG / CSS -->
+            <div style="width: 100%; height: 12px; background: var(--surface-tertiary); border-radius: 6px; overflow: hidden; display: flex; border: 1px solid var(--border-subtle);">
+              <div :style="{ width: ((dashboardMetrics.countAnalise / Math.max(1, countAllProjects)) * 100) + '%', backgroundColor: '#3B82F6' }" title="Em Análise"></div>
+              <div :style="{ width: ((dashboardMetrics.countPauta / Math.max(1, countAllProjects)) * 100) + '%', backgroundColor: '#F59E0B' }" title="Em Pauta"></div>
+              <div :style="{ width: ((dashboardMetrics.countAprovados / Math.max(1, countAllProjects)) * 100) + '%', backgroundColor: '#10B981' }" title="Aprovado"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- TELA 2: MESA DE TRABALHO DO RELATOR (EDGE-TO-EDGE SPLIT VIEW)             -->
+    <!-- ========================================================================= -->
+    <main v-if="currentView === 'workspace'" class="workspace-view">
+      
+      <!-- FAIXA SUPERIOR CONTÍNUA DE DADOS DO PROJETO E ENQUADRAMENTO (LINHA ÚNICA) -->
+      <section class="workspace-header-strip">
+        <div class="workspace-single-bar">
+          <div class="metadata-cluster">
+            <div class="field-compact">
+              <label>{{ t('fieldInstituicao') }}</label>
+              <input v-model="activeProject.instituicao" @input="updateLogPreview" type="text" class="input-ui input-ui-compact" style="width: 110px;" placeholder="Inst...">
+            </div>
+            <div class="field-compact">
+              <label>{{ t('fieldPesquisador') }}</label>
+              <input v-model="activeProject.pesquisador" @input="updateLogPreview" :title="activeProject.pesquisador" type="text" class="input-ui input-ui-compact" style="width: 160px;" placeholder="Pesquisador...">
+            </div>
+            <div class="field-compact" style="flex: 1; min-width: 200px;">
+              <label>{{ t('fieldTitulo') }}</label>
+              <input v-model="activeProject.titulo" @input="updateLogPreview" :title="activeProject.titulo" type="text" class="input-ui input-ui-compact" style="width: 100%;" placeholder="Título...">
+            </div>
+            <div class="field-compact">
+              <label>{{ t('fieldCaae') }}</label>
+              <input v-model="activeProject.caae" @input="updateLogPreview" type="text" class="input-ui input-ui-compact" style="width: 130px;" placeholder="CAAE...">
+            </div>
+            <div class="field-compact">
+              <label>{{ t('fieldRelator') }}</label>
+              <input v-model="activeProject.relator" @input="updateLogPreview" list="relatores-list" :placeholder="t('fieldRelatorPlaceholder')" class="input-ui input-ui-compact" style="width: 130px;">
+              <datalist id="relatores-list">
+                <option v-for="rel in savedRelatores" :key="rel" :value="rel">{{ rel }}</option>
+              </datalist>
+            </div>
+            <div class="field-compact">
+              <label style="color: var(--brand-primary); font-weight: 600;">{{ currentLang === 'es' ? 'Encuadre:' : 'Enquadramento:' }}</label>
+              <select v-model="activeProject.enquadramentoTipo" @change="onEnquadramentoChange(activeProject)" class="select-ui select-ui-compact" style="font-weight: 500; min-width: 170px;">
+                <option value="geral">{{ t('enqGeneral') }}</option>
+                <option value="menores">{{ t('enqMinor') }}</option>
+                <option value="bancoDados">{{ t('enqDatabase') }}</option>
+                <option value="indigena">{{ t('enqIndigenous') }}</option>
+                <option value="nenhum">{{ t('enqNone') }}</option>
+                <option value="outro">{{ t('enqOther') }}</option>
+              </select>
+              <input v-if="activeProject.enquadramentoTipo === 'outro'" v-model="activeProject.enquadramentoCustom" type="text"
+                     placeholder="Especificar..." class="input-ui input-ui-compact" style="width: 110px;">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WORKSPACE DIVIDIDO HORIZONTALMENTE COM RESIZABLE SPLITTER -->
+      <div class="split-workspace">
+        
+        <!-- PAINEL ESQUERDO: INSPECTOR VISOR DE DOCUMENTOS -->
+        <section class="left-inspector-pane" :style="{ width: leftPaneWidth + '%' }">
+          
+          <!-- Barra Principal do Visor: Seletor de Arquivo + Editar Tipo Inline + Substituir/Subir -->
+          <div class="viewer-bar">
+            <div class="viewer-left-controls">
+              <!-- Seletor do Arquivo Ativo (Mostra Tipo + Nome + Quantidade de Pendências) -->
+              <select v-model="selectedDocumentIndex" @change="onDocumentChange" class="select-ui select-ui-compact" style="flex: 1; min-width: 170px; font-weight: 600;">
+                <option v-if="activeDocuments.length === 0" :value="0">-- {{ t('noDocumentsLoaded') }} --</option>
+                <option v-for="(doc, idx) in activeDocuments" :key="idx" :value="idx">
+                  [{{ getDocTypeLabel(doc.targetType, doc.customName) }}] {{ doc.file.name }} {{ getPendenciasForDocument(doc).length > 0 ? '⚠️ (' + getPendenciasForDocument(doc).length + ')' : '' }}
+                </option>
+              </select>
+
+              <!-- Editar Tipo do Documento Diretamente na Barra -->
+              <template v-if="activeDocumentItem">
+                <select v-model="activeDocumentItem.targetType" class="select-ui select-ui-compact" style="width: 140px;" title="Alterar o Tipo deste Documento (Folha de Rosto, TCLE, etc.)">
+                  <option v-for="dt in docTypesCatalog" :key="dt.value" :value="dt.value">
+                    Tipo: {{ currentLang === 'es' ? dt.label_es : dt.label }}
+                  </option>
+                </select>
+                <input v-if="activeDocumentItem.targetType === 'Outro'" v-model="activeDocumentItem.customName" type="text"
+                       placeholder="Especificar tipo..." class="input-ui input-ui-compact" style="width: 110px;">
+              </template>
+
+              <!-- Botões Rápidos de Gestão de Arquivos no Visor -->
+              <button @click="openDocumentsManagerModal" class="btn-ui btn-ui-compact btn-ui-primary" title="Abrir janela para ver todos os documentos, editar tipos, excluir ou subir novos">
+                📁 {{ currentLang === 'es' ? 'Gestionar' : 'Gerenciar' }} ({{ activeDocuments.length }})
+              </button>
+              <button @click="triggerMultiFilePicker" class="btn-ui btn-ui-compact" title="Subir novos arquivos entregues pelo pesquisador">
+                + {{ currentLang === 'es' ? 'Subir' : 'Subir' }}
+              </button>
+              <button v-if="activeDocumentItem" @click="triggerReplaceDocument(selectedDocumentIndex)" class="btn-ui btn-ui-compact" title="Substituir este arquivo pela nova versão corrigida">
+                🔄 {{ currentLang === 'es' ? 'Reemplazar' : 'Substituir' }}
+              </button>
+              <button v-if="activeDocumentItem" @click="removeActiveDocument(selectedDocumentIndex)" class="btn-ui btn-ui-compact btn-ui-danger" title="Remover este arquivo da rodada atual">
+                🗑️
+              </button>
+            </div>
+
+            <!-- Controles de Página e Zoom -->
+            <div class="viewer-right-controls">
+              <button @click="viewerPrevPage" class="btn-ui btn-ui-compact" title="Página Anterior">‹</button>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; padding: 0 4px; white-space: nowrap;">
+                {{ viewerCurrentPage }}/{{ viewerTotalPages }}
+              </span>
+              <button @click="viewerNextPage" class="btn-ui btn-ui-compact" title="Próxima Página">›</button>
+
+              <span style="color: var(--border-medium); margin: 0 2px;">|</span>
+
+              <button @click="viewerZoomOut" class="btn-ui btn-ui-compact" title="Reduzir">−</button>
+              <button @click="viewerZoomFit" class="btn-ui btn-ui-compact" title="Restaurar 100%">{{ viewerZoomPercent }}%</button>
+              <button @click="viewerZoomIn" class="btn-ui btn-ui-compact" title="Ampliar">+</button>
+              <button @click="viewerRotate" class="btn-ui btn-ui-compact" title="Girar 90°">↻</button>
+            </div>
+          </div>
+
+          <!-- Barra de Busca Textual Integrada (Ctrl+F) -->
+          <div class="viewer-search-bar">
+            <div style="display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0;">
+              <input ref="viewerSearchInput" v-model="viewerSearchTerm" @keyup.enter="performViewerSearch" type="text" 
+                     :placeholder="t('searchInDocument')" class="input-ui input-ui-compact" style="flex: 1; max-width: 250px;">
+              <button @click="performViewerSearch" class="btn-ui btn-ui-compact">Buscar</button>
+              <button @click="viewerPrevMatch" :disabled="viewerMatchesCount === 0" class="btn-ui btn-ui-compact" title="Ocorrência Anterior">↑</button>
+              <button @click="viewerNextMatch" :disabled="viewerMatchesCount === 0" class="btn-ui btn-ui-compact" title="Próxima Ocorrência">↓</button>
+              <span v-if="viewerSearchTerm" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: var(--brand-primary); margin-left: 4px; white-space: nowrap;">
+                {{ viewerMatchesCount > 0 ? `${viewerCurrentMatch}/${viewerMatchesCount}` : '0' }} {{ t('matchesFound') }}
+              </span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-secondary); flex-shrink: 0;">
+              <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+                <input type="checkbox" v-model="viewerCaseSensitive" @change="performViewerSearch"> <span>Aa</span>
+              </label>
+              <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 3px;" title="Sensível a acentos e til (~)">
+                <input type="checkbox" v-model="viewerAccentSensitive" @change="performViewerSearch"> <span>Acentos (~)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- FAIXA DE AVISO QUANDO O ARQUIVO ABERTO TEM PENDÊNCIAS MARCADAS -->
+          <div v-if="activeDocumentItem && activeDocumentPendencias.length > 0" class="doc-alert-banner">
+            <div style="display: flex; align-items: center; gap: 8px; color: var(--status-warn); font-weight: 600;">
+              <span>⚠️ {{ currentLang === 'es' ? 'Este documento tiene' : 'Este documento possui' }} {{ activeDocumentPendencias.length }} {{ currentLang === 'es' ? 'pendencia(s) marcada(s):' : 'pendência(s) marcada(s):' }}</span>
+              <span style="font-weight: 500; color: var(--text-primary);">
+                {{ activeDocumentPendencias.map(p => p.title).join(' • ') }}
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button @click="triggerReplaceDocument(selectedDocumentIndex)" class="btn-ui btn-ui-sm" style="border-color: var(--status-warn-border); font-weight: 600;">
+                🔄 {{ currentLang === 'es' ? 'Subir Archivo Corregido (Reemplazar)' : 'Subir Arquivo Corrigido (Substituir)' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Área de Renderização do Documento -->
+          <div class="viewer-canvas-area" id="viewerContainer" ref="viewerContainer"></div>
+        </section>
+
+        <!-- BARRA DIVISÓRIA REDIMENSIONÁVEL (SPLITTER) -->
+        <div class="splitter-bar" @mousedown="startSplitterDrag" :class="{ 'dragging': isDraggingSplitter }" title="Arraste para ajustar a largura dos painéis">
+          <div class="splitter-grip"></div>
+        </div>
+
+        <!-- PAINEL DIREITO: PESTANAS DE PENDÊNCIAS E GERAÇÃO DE LOG -->
+        <section class="right-pendencias-pane">
+          
+          <!-- Tira de Abas com Indicador Inferior -->
+          <div class="platform-tabs-strip">
+            <button v-for="cat in availableCategories" :key="cat.id"
+                    @click="activeCategoryTab = cat.id"
+                    class="platform-tab"
+                    :class="{ 'active': activeCategoryTab === cat.id }">
+              <span>{{ currentLang === 'es' && cat.name_es ? cat.name_es : cat.name }}</span>
+              <span v-if="getPendenciasCountByCategory(cat.id) > 0" class="tab-counter">
+                {{ getPendenciasCountByCategory(cat.id) }}
+              </span>
+            </button>
+
+            <!-- Última Aba: log.txt / mlog.txt -->
+            <button @click="activeCategoryTab = 'resumo'"
+                    class="platform-tab"
+                    :class="{ 'active': activeCategoryTab === 'resumo' }"
+                    style="margin-left: auto;">
+              <span>{{ t('tabSummary') }} (log.txt)</span>
+              <span v-if="selectedPendencias.length > 0" class="tab-counter" style="background-color: var(--action-save);">
+                {{ selectedPendencias.length }}
+              </span>
+            </button>
+          </div>
+
+          <!-- CONTEÚDO DAS ABAS DE PENDÊNCIAS (LISTA CONTÍNUA SEM CAIXAS PESADAS) -->
+          <div v-if="activeCategoryTab !== 'resumo'" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+            
+            <!-- Sub-barra de filtro da aba e botão Outro -->
+            <div style="padding: 8px 16px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: 10px; background-color: var(--surface-primary);">
+              <input v-model="pendenciaSearchQuery" type="text" placeholder="Filtrar itens nesta categoria..." class="input-ui" style="flex: 1; padding: 5px 10px; font-size: 12px;">
+              <button @click="addCustomPendenciaToCurrentCategory" class="btn-ui btn-ui-sm">
+                {{ t('btnCustomOption') }}
+              </button>
+            </div>
+
+            <!-- Linhas Contínuas de Pendências -->
+            <div class="pendencias-list-scroll">
+              <div v-for="pend in currentCategoryPendencias" :key="pend.id"
+                   class="pendencia-row"
+                   :class="{ 'selected': isPendenciaSelected(pend.id) }">
+                
+                <div class="pendencia-row-header" @click="togglePendencia(pend)">
+                  <input type="checkbox" :checked="isPendenciaSelected(pend.id)" @click.stop="togglePendencia(pend)" style="margin-top: 2px;">
+                  <div style="flex: 1;">
+                    <div class="pendencia-row-title">
+                      {{ currentLang === 'es' && pend.title_es ? pend.title_es : pend.title }}
+                    </div>
+                    <div class="pendencia-row-norma">
+                      {{ pend.normativa }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Detalhe, Vínculo com o Arquivo e Observação Específica quando assinalada -->
+                <div v-if="isPendenciaSelected(pend.id)" style="margin-top: 8px; padding-left: 25px;">
+                  <!-- Seletor de qual documento recebeu esta pendência -->
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
+                    <span style="font-size: 11.5px; font-weight: 600; color: var(--status-warn);">
+                      {{ currentLang === 'es' ? 'Documento con pendencia:' : 'Documento com pendência:' }}
+                    </span>
+                    <select v-model="getSelectedPendencia(pend.id).targetDocType" class="select-ui" style="padding: 2px 8px; font-size: 11.5px; font-weight: 600;">
+                      <option value="Geral">Geral / Protocolo</option>
+                      <option v-for="dt in docTypesCatalog" :key="dt.value" :value="dt.value">
+                        {{ currentLang === 'es' ? dt.label_es : dt.label }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="pendencia-official-snippet">{{ pend.template }}</div>
+                  <div style="margin-top: 8px;">
+                    <input type="text" v-model="getSelectedPendencia(pend.id).observacaoRelator" @input="updateLogPreview"
+                           :placeholder="t('obsPlaceholder')" class="input-ui" style="width: 100%; font-size: 12px; padding: 5px 8px;">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CONTEÚDO DA ÚLTIMA ABA: LOG.TXT E MLOG.TXT -->
+          <div v-if="activeCategoryTab === 'resumo'" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+            
+            <div style="padding: 10px 16px; border-bottom: 1px solid var(--border-subtle); background-color: var(--surface-secondary); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">
+                  {{ hasManualEdits ? 'Modo Duplo: log.txt (Original) + mlog.txt (Modificado)' : 'Texto de Resposta de Pendências ao Pesquisador (log.txt)' }}
+                </div>
+                <div v-if="hasManualEdits" style="font-size: 11.5px; color: var(--status-warn); font-weight: 500; margin-top: 1px;">
+                  {{ t('modifiedNotice') }}
+                </div>
+                <div v-else style="font-size: 11.5px; color: var(--text-secondary); margin-top: 1px;">
+                  100% em Português do Brasil. Se você modificar o texto abaixo, o programa salvará <code>log.txt</code> (original) e <code>mlog.txt</code> (editado).
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button v-if="hasManualEdits" @click="resetToOriginalLog" class="btn-ui btn-ui-sm">
+                  Restaurar Original
+                </button>
+                <button @click="copyLogToClipboard" class="btn-ui btn-ui-sm">
+                  Copiar Texto
+                </button>
+                <button @click="downloadTxtFile('log.txt', officialGeneratedLog)" class="btn-ui btn-ui-sm">
+                  Baixar log.txt
+                </button>
+                <button v-if="hasManualEdits" @click="downloadTxtFile('mlog.txt', editableLogText)" class="btn-ui btn-ui-sm">
+                  Baixar mlog.txt
+                </button>
+              </div>
+            </div>
+
+            <!-- Editor Contínuo Monoespaçado -->
+            <textarea v-model="editableLogText" @input="onLogManualEdit"
+                      style="flex: 1; width: 100%; border: none; outline: none; padding: 16px 20px; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12.5px; line-height: 1.6; color: var(--text-primary); background-color: var(--surface-primary); resize: none;"></textarea>
+          </div>
+
+        </section>
+
+      </div>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- BARRA DE STATUS INFERIOR (COM CRÉDITO DISCRETO)                           -->
+    <!-- ========================================================================= -->
+    <footer class="app-statusbar">
+      <div style="display: flex; align-items: center; gap: 16px; overflow: hidden;">
+        <span><strong>Status:</strong> {{ isSaving ? 'Gravando arquivos...' : 'Pronto' }}</span>
+        <span v-if="activeProject.titulo" style="color: var(--text-muted);">|</span>
+        <span v-if="activeProject.titulo" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          <strong>Pasta Alvo:</strong> {{ activeProject.instituicao }}.{{ activeProject.pesquisador }}.{{ activeProject.titulo }}/{{ targetRoundFolder }}
+        </span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 16px; flex-shrink: 0;">
+        <span>Prazo Resposta (+10d): <strong>{{ calculatedDatesInfo.prazo }}</strong></span>
+        <span style="color: var(--border-medium);">|</span>
+        <span style="color: var(--text-muted); font-size: 11px;">Feito por Eliezer Prieto</span>
+      </div>
+    </footer>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 1: CADASTRAR NOVO PROJETO E CLASSIFICAR DOCUMENTOS                  -->
+    <!-- ========================================================================= -->
+    <div v-if="showNewProjectModal" class="modal-overlay">
+      <div class="modal-window">
+        <div class="modal-header">
+          <h3>{{ currentLang === 'es' ? 'Nuevo Proyecto y Clasificación de Documentos' : 'Novo Projeto de Pesquisa e Classificação de Documentos' }}</h3>
+          <button @click="closeNewProjectModal" class="btn-ui btn-ui-ghost btn-ui-sm">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- 1. Dados do Projeto -->
+          <div>
+            <div class="modal-section-title">1. Identificação do Projeto e Enquadramento</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div>
+                <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">Nome da Instituição *</label>
+                <input v-model="newProjectForm.instituicao" type="text" class="input-ui" style="width: 100%;" placeholder="Ex: UCDB, UFMS, Hospital...">
+              </div>
+              <div>
+                <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">Nome do(a) Pesquisador(a) *</label>
+                <input v-model="newProjectForm.pesquisador" type="text" class="input-ui" style="width: 100%;" placeholder="Nome completo...">
+              </div>
+              <div style="grid-column: span 2;">
+                <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">Título da Pesquisa *</label>
+                <input v-model="newProjectForm.titulo" type="text" class="input-ui" style="width: 100%;" placeholder="Título do protocolo de pesquisa...">
+              </div>
+              <div>
+                <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">CAAE / Protocolo (opcional)</label>
+                <input v-model="newProjectForm.caae" type="text" class="input-ui" style="width: 100%;" placeholder="Ex: 98368525.3.0000.5162">
+              </div>
+              <div>
+                <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">Relator Designado</label>
+                <input v-model="newProjectForm.relator" list="relatores-list" type="text" class="input-ui" style="width: 100%;" placeholder="Digite ou selecione...">
+              </div>
+            </div>
+
+            <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary);">
+                {{ currentLang === 'es' ? 'Encuadre / Población:' : 'Enquadramento:' }}
+              </label>
+              <select v-model="newProjectForm.enquadramentoTipo" @change="onEnquadramentoChange(newProjectForm)" class="select-ui select-ui-compact" style="min-width: 240px;">
+                <option value="geral">{{ t('enqGeneral') }}</option>
+                <option value="menores">{{ t('enqMinor') }}</option>
+                <option value="bancoDados">{{ t('enqDatabase') }}</option>
+                <option value="indigena">{{ t('enqIndigenous') }}</option>
+                <option value="nenhum">{{ t('enqNone') }}</option>
+                <option value="outro">{{ t('enqOther') }}</option>
+              </select>
+              <input v-if="newProjectForm.enquadramentoTipo === 'outro'" v-model="newProjectForm.enquadramentoCustom" type="text"
+                     placeholder="Especificar enquadramento..." class="input-ui input-ui-compact" style="width: 200px;">
+            </div>
+          </div>
+
+          <!-- 2. Seleção e Tipificação de Arquivos -->
+          <div>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px; margin-bottom: 10px;">
+              <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--brand-primary);">
+                2. Seleção e Classificação dos Documentos ({{ newProjectFiles.length }})
+              </span>
+              <div style="display: flex; gap: 8px;">
+                <button @click="triggerFolderFilePicker" class="btn-ui btn-ui-primary btn-ui-sm">
+                  Selecionar Pasta de Arquivos
+                </button>
+                <button @click="triggerMultiFilePicker" class="btn-ui btn-ui-sm">
+                  Selecionar Arquivos Soltos
+                </button>
+              </div>
+            </div>
+
+            <div v-if="newProjectFiles.length > 0" style="max-height: 240px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 5px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="padding: 8px 12px;">Arquivo Original</th>
+                    <th style="padding: 8px 12px;">Tipo de Documento</th>
+                    <th style="padding: 8px 12px;">Nome Final ao Salvar</th>
+                    <th style="width: 40px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(item, idx) in newProjectFiles" :key="idx">
+                    <td style="padding: 8px 12px; font-weight: 500;">{{ item.file.name }}</td>
+                    <td style="padding: 8px 12px;">
+                      <select v-model="item.targetType" class="select-ui" style="width: 100%; padding: 4px 8px; font-size: 12px;">
+                        <option v-for="dt in docTypesCatalog" :key="dt.value" :value="dt.value">
+                          {{ currentLang === 'es' ? dt.label_es : dt.label }}
+                        </option>
+                      </select>
+                      <input v-if="item.targetType === 'Outro'" v-model="item.customName" type="text" 
+                             placeholder="Especifique o tipo..." class="input-ui" style="width: 100%; margin-top: 4px; padding: 4px 8px; font-size: 12px;">
+                    </td>
+                    <td style="padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-secondary);">
+                      {{ (item.targetType === 'Outro' && item.customName ? item.customName : item.targetType) }}.{{ todayDateString }}{{ item.extension }}
+                    </td>
+                    <td style="padding: 8px 12px; text-align: center;">
+                      <button @click="removeNewProjectFile(idx)" class="btn-ui btn-ui-ghost btn-ui-sm">✕</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else style="padding: 24px; text-align: center; color: var(--text-muted); border: 1px dashed var(--border-medium); border-radius: 6px;">
+              Clique em <strong>"Selecionar Pasta de Arquivos"</strong> para carregar os documentos do pesquisador.
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button @click="closeNewProjectModal" class="btn-ui">Cancelar</button>
+          <button @click="finalizeNewProjectCreation" class="btn-ui btn-ui-primary">
+            Abrir Projeto na Mesa de Avaliação →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 2: GERENCIAR DOCUMENTOS, EDITAR TIPOS E HISTÓRICO DE RODADAS        -->
+    <!-- ========================================================================= -->
+    <div v-if="showDocumentsModal" class="modal-overlay">
+      <div class="modal-window modal-window-lg">
+        <div class="modal-header">
+          <h3>
+            {{ currentLang === 'es' ? 'Gestión de Documentos, Tipos y Rondas de Entrega' : 'Gerenciamento de Documentos, Tipos e Histórico de Submissões' }}
+          </h3>
+          <button @click="closeDocumentsModal" class="btn-ui btn-ui-ghost btn-ui-sm">✕</button>
+        </div>
+
+        <div class="modal-body">
+          
+          <!-- 1. Controle de Histórico de Pastas (Track de Submissões por Data) -->
+          <div style="background-color: var(--surface-secondary); border: 1px solid var(--border-medium); border-radius: 6px; padding: 12px 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <div style="font-size: 12.5px; font-weight: 600; color: var(--text-primary);">
+                  {{ currentLang === 'es' ? 'Control de Versiones y Carpetas por Fecha (Track Histórico)' : 'Controle de Versões e Pastas por Data (Track Histórico)' }}
+                </div>
+                <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;">
+                  {{ currentLang === 'es'
+                    ? 'Cuando el investigador entrega un archivo corregido, la carpeta de fecha anterior conserva los archivos antiguos intactos y la nueva carpeta guarda la entrega actual.'
+                    : 'Quando o pesquisador entrega um arquivo corrigido, a pasta da data antiga mantém os arquivos anteriores intactos e a pasta da nova data salva os arquivos atuais.' }}
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <label style="font-size: 12px; font-weight: 600; color: var(--brand-primary);">
+                  {{ currentLang === 'es' ? 'Carpeta Destino Actual:' : 'Pasta Destino Atual:' }}
+                </label>
+                <input v-model="targetRoundFolder" type="text" class="input-ui" style="width: 145px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; padding: 4px 8px;">
+                <button @click="startNewSubmissionRound" class="btn-ui btn-ui-sm" title="Criar nova subpasta para uma nova entrega mantendo a pasta anterior intacta">
+                  + {{ currentLang === 'es' ? 'Nueva Carpeta de Entrega' : 'Nova Pasta de Submissão' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Lista de Pastas Históricas já salvas no disco para este projeto -->
+            <div v-if="projectRoundsHistory.length > 0" style="margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary);">
+                {{ currentLang === 'es' ? 'Historial de carpetas guardadas (clic para consultar):' : 'Histórico de pastas salvas no disco (clique para consultar):' }}
+              </span>
+              <button v-for="rName in projectRoundsHistory" :key="rName"
+                      @click="switchToHistoricalRound(rName)"
+                      class="btn-ui btn-ui-sm"
+                      :class="{ 'active': loadedFromRound === rName }"
+                      style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">
+                📂 {{ rName }}
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Tabela de Documentos Ativos: Editar Tipo, Ver Pendências, Substituir ou Excluir -->
+          <div>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <span style="font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--brand-primary);">
+                  {{ currentLang === 'es' ? 'Documentos en el Espacio de Trabajo' : 'Documentos na Mesa de Trabalho' }} ({{ activeDocuments.length }})
+                </span>
+              </div>
+
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button @click="triggerMultiFilePicker" class="btn-ui btn-ui-primary btn-ui-sm">
+                  + {{ currentLang === 'es' ? 'Subir Nuevos Archivos' : 'Subir Novos Arquivos' }}
+                </button>
+                <button @click="triggerFolderFilePicker" class="btn-ui btn-ui-sm">
+                  + {{ currentLang === 'es' ? 'Subir Carpeta de Archivos' : 'Subir Pasta de Arquivos' }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="activeDocuments.length > 0" style="max-height: 380px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 6px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="padding: 9px 12px;">{{ currentLang === 'es' ? 'Archivo / Origen' : 'Arquivo / Origem' }}</th>
+                    <th style="padding: 9px 12px; width: 230px;">{{ currentLang === 'es' ? 'Tipo de Documento (Editable)' : 'Tipo de Documento (Editável)' }}</th>
+                    <th style="padding: 9px 12px;">{{ currentLang === 'es' ? 'Pendencias en este Documento' : 'Pendências neste Documento' }}</th>
+                    <th style="padding: 9px 12px;">{{ currentLang === 'es' ? 'Nombre al Guardar' : 'Nome Final na Pasta' }}</th>
+                    <th style="padding: 9px 12px; text-align: right; width: 210px;">{{ currentLang === 'es' ? 'Acciones' : 'Ações' }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(item, idx) in activeDocuments" :key="idx">
+                    <!-- Arquivo Original e Origem -->
+                    <td style="padding: 9px 12px;">
+                      <div style="font-weight: 600; color: var(--text-primary); word-break: break-all;">
+                        {{ item.originalFileName || item.file.name }}
+                      </div>
+                      <div style="margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <span v-if="item.replacedAt" class="badge-ok" style="font-size: 10.5px;">
+                          🔄 Substituído ({{ item.replacedAt }})
+                        </span>
+                        <span v-else-if="item.isNewUpload" class="badge-ok" style="font-size: 10.5px;">
+                          ✨ Novo upload
+                        </span>
+                        <span v-else-if="item.originRound" class="badge-round" style="font-size: 10.5px;">
+                          Rodada: {{ item.originRound }}
+                        </span>
+                      </div>
+                    </td>
+
+                    <!-- Editar Tipo de Documento (Folha de Rosto, TCLE, etc.) -->
+                    <td style="padding: 9px 12px;">
+                      <select v-model="item.targetType" class="select-ui" style="width: 100%; padding: 5px 8px; font-size: 12px; font-weight: 600;">
+                        <option v-for="dt in docTypesCatalog" :key="dt.value" :value="dt.value">
+                          {{ currentLang === 'es' ? dt.label_es : dt.label }}
+                        </option>
+                      </select>
+                      <input v-if="item.targetType === 'Outro'" v-model="item.customName" type="text"
+                             placeholder="Especifique o tipo..." class="input-ui" style="width: 100%; margin-top: 4px; padding: 4px 8px; font-size: 12px;">
+                    </td>
+
+                    <!-- Status de Pendências vinculadas a este arquivo -->
+                    <td style="padding: 9px 12px;">
+                      <div v-if="getPendenciasForDocument(item).length > 0">
+                        <span class="badge-pendencia">
+                          ⚠️ {{ getPendenciasForDocument(item).length }} {{ currentLang === 'es' ? 'Pendencia(s)' : 'Pendência(s)' }}
+                        </span>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.35;">
+                          <div v-for="p in getPendenciasForDocument(item)" :key="p.id">
+                            • {{ p.title }}
+                          </div>
+                        </div>
+                      </div>
+                      <div v-else>
+                        <span class="badge-ok">
+                          ✓ {{ currentLang === 'es' ? 'Sin pendencias' : 'Sem pendências' }}
+                        </span>
+                      </div>
+                    </td>
+
+                    <!-- Nome Padronizado Final -->
+                    <td style="padding: 9px 12px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-secondary);">
+                      {{ (item.targetType === 'Outro' && item.customName ? item.customName : item.targetType) }}.{{ targetRoundFolder }}{{ item.extension }}
+                    </td>
+
+                    <!-- Ações: Ver, Substituir por novo arquivo corrigido, ou Excluir -->
+                    <td style="padding: 9px 12px; text-align: right;">
+                      <div style="display: inline-flex; align-items: center; gap: 6px;">
+                        <button @click="viewDocumentFromModal(idx)" class="btn-ui btn-ui-sm" title="Abrir este documento no visor">
+                          👁️ {{ currentLang === 'es' ? 'Ver' : 'Ver' }}
+                        </button>
+                        <button @click="triggerReplaceDocument(idx)" class="btn-ui btn-ui-sm" style="border-color: var(--brand-accent); font-weight: 600;" title="Substituir este arquivo pelo novo documento corrigido pelo pesquisador">
+                          🔄 {{ currentLang === 'es' ? 'Reemplazar' : 'Substituir' }}
+                        </button>
+                        <button @click="removeActiveDocument(idx)" class="btn-ui btn-ui-danger btn-ui-sm" title="Remover este arquivo da entrega atual">
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div v-else style="padding: 32px; text-align: center; color: var(--text-muted); border: 1px dashed var(--border-medium); border-radius: 6px;">
+              Nenhum arquivo carregado nesta rodada. Clique em <strong>"+ Subir Novos Arquivos"</strong> para anexar os documentos entregues pelo pesquisador.
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button @click="closeDocumentsModal" class="btn-ui">
+            {{ currentLang === 'es' ? 'Cerrar y Volver al Visor' : 'Fechar e Voltar ao Visor' }}
+          </button>
+          <button @click="closeDocumentsModal(); saveCurrentProject()" :disabled="isSaving" class="btn-ui btn-ui-save">
+            {{ isSaving ? t('saving') : (currentLang === 'es' ? 'Guardar Cambios en Carpeta' : 'Salvar Alterações na Pasta') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 3: CONFIGURAÇÕES DO CEP E CRIADOR DE CATEGORIAS / PENDÊNCIAS        -->
+    <!-- ========================================================================= -->
+    <div v-if="showConfigModal" class="modal-overlay">
+      <div class="modal-window">
+        <div class="modal-header">
+          <h3>Configurações Institucionais e Padrões de Pendências</h3>
+          <button @click="closeConfigModal" class="btn-ui btn-ui-ghost btn-ui-sm">✕</button>
+        </div>
+
+        <div class="platform-tabs-strip">
+          <button @click="configTab = 'instituicao'" class="platform-tab" :class="{ 'active': configTab === 'instituicao' }">
+            {{ currentLang === 'es' ? '1. Datos Institucionales del CEP' : '1. Dados Padrão do CEP' }}
+          </button>
+          <button @click="configTab = 'pendencias'" class="platform-tab" :class="{ 'active': configTab === 'pendencias' }">
+            {{ currentLang === 'es' ? '2. Padrões de Pendencias y Categorías' : '2. Padrões de Pendências & Categorias' }}
+          </button>
+        </div>
+
+        <!-- Aba 1: Dados do CEP -->
+        <div v-if="configTab === 'instituicao'" class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="grid-column: span 2;">
+              <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">{{ t('cfgNomeCep') }}</label>
+              <input v-model="config.nomeCep" type="text" class="input-ui" style="width: 100%;">
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">{{ t('cfgInstituicao') }}</label>
+              <input v-model="config.instituicao" type="text" class="input-ui" style="width: 100%;">
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">{{ t('cfgTelefone') }}</label>
+              <input v-model="config.telefone" type="text" class="input-ui" style="width: 100%;">
+            </div>
+            <div style="grid-column: span 2;">
+              <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">{{ t('cfgEndereco') }}</label>
+              <input v-model="config.endereco" type="text" class="input-ui" style="width: 100%;">
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">{{ t('cfgEmail') }}</label>
+              <input v-model="config.email" type="text" class="input-ui" style="width: 100%;">
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">{{ t('cfgHorario') }}</label>
+              <input v-model="config.horario" type="text" class="input-ui" style="width: 100%;">
+            </div>
+            <div style="grid-column: span 2;">
+              <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">{{ t('cfgSite') }}</label>
+              <input v-model="config.site" type="text" class="input-ui" style="width: 100%;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Aba 2: Gerenciador de Categorias e Pendências -->
+        <div v-if="configTab === 'pendencias'" class="modal-body">
+          <div>
+            <div class="modal-section-title">A. Criar Nova Categoria (Nova Aba de Documento)</div>
+            <div style="display: flex; gap: 10px;">
+              <input v-model="newCategoryName" type="text" class="input-ui" style="flex: 1;" placeholder="Nome da nova categoria (ex: Biobanco, Ensaios Clínicos)...">
+              <button @click="createNewCategory" class="btn-ui btn-ui-primary">Criar Categoria</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="modal-section-title">B. Criar Nova Pendência Padronizada</div>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                  <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">Categoria / Aba Destino</label>
+                  <select v-model="newPendenciaForm.categoryId" class="select-ui" style="width: 100%;">
+                    <option v-for="cat in availableCategories" :key="cat.id" :value="cat.id">
+                      {{ cat.name }} ({{ cat.pendencias.length }} itens)
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">Referência Normativa (opcional)</label>
+                  <input v-model="newPendenciaForm.normativa" type="text" class="input-ui" style="width: 100%;" placeholder="Ex: Resolução CNS nº 466/2012, Item IV">
+                </div>
+              </div>
+
+              <div>
+                <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">Título Curto da Pendência *</label>
+                <input v-model="newPendenciaForm.title" type="text" class="input-ui" style="width: 100%;" placeholder="Resumo que aparece na lista de seleção...">
+              </div>
+
+              <div>
+                <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">Texto Oficial Gerado no log.txt *</label>
+                <textarea v-model="newPendenciaForm.template" rows="4" class="textarea-ui" style="width: 100%;" placeholder="Redação completa que será inserida no parecer para o pesquisador..."></textarea>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end;">
+                <button @click="createNewStandardPendencia" class="btn-ui btn-ui-primary">Adicionar Pendência</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button @click="closeConfigModal" class="btn-ui">Fechar</button>
+          <button @click="saveInstitutionConfig" class="btn-ui btn-ui-save">{{ t('btnSaveConfig') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 4: DELIBERAÇÃO COLEGIADA (PROJETOS EM PAUTA)                       -->
+    <!-- ========================================================================= -->
+    <div v-if="showDeliberationModal" class="modal-overlay" style="z-index: 1000;">
+      <div class="modal-window" style="max-width: 540px;">
+        <div class="modal-header">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="badge-status badge-status-pauta">
+              <span class="badge-dot"></span>
+              {{ t('statusEmPauta') }}
+            </span>
+            <span style="font-size: 13px; font-weight: 600; color: var(--brand-primary);">
+              {{ t('deliberationTitle') }}
+            </span>
+          </div>
+          <button @click="closeDeliberationModal" class="btn-ui btn-ui-ghost btn-ui-sm">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="deliberation-project-summary">
+            <div style="font-size: 13.5px; font-weight: 600; color: var(--brand-primary); line-height: 1.4;">
+              {{ projectToDeliberate?.titulo }}
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+              <span><strong>{{ currentLang === 'es' ? 'Investigador:' : 'Pesquisador:' }}</strong> {{ projectToDeliberate?.pesquisador }}</span>
+              <span style="margin: 0 6px;">•</span>
+              <span><strong>{{ currentLang === 'es' ? 'Relator:' : 'Relator:' }}</strong> {{ projectToDeliberate?.relator || '—' }}</span>
+              <span v-if="projectToDeliberate?.caae" style="margin: 0 6px;">•</span>
+              <span v-if="projectToDeliberate?.caae"><strong>CAAE:</strong> {{ projectToDeliberate.caae }}</span>
+            </div>
+          </div>
+
+          <p style="font-size: 13px; color: var(--text-primary); margin: 4px 0 6px 0; font-weight: 500;">
+            {{ t('deliberationPrompt') }}
+          </p>
+
+          <div class="deliberation-box">
+            <!-- Opção 1: Sim, Aprovado na Reunião -->
+            <button @click="deliberateAprovar" class="deliberation-action-btn btn-approve">
+              <svg class="icon-svg" style="width: 22px; height: 22px; color: #059669; flex-shrink: 0;" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              <div>
+                <div style="font-weight: 600; font-size: 13px; color: #065F46;">{{ t('btnAprovarReuniao') }}</div>
+                <div style="font-size: 11.5px; color: #047857; margin-top: 2px;">
+                  {{ currentLang === 'es' ? 'Archiva el protocolo en el histórico activo con sello de Aprobado.' : 'Arquiva o protocolo no histórico ativo com carimbo de Aprovado.' }}
+                </div>
+              </div>
+            </button>
+
+            <!-- Opção 2: Não, Voltar com Pendências -->
+            <button @click="deliberateVoltarPendencia" class="deliberation-action-btn btn-pendencia">
+              <svg class="icon-svg" style="width: 22px; height: 22px; color: #D97706; flex-shrink: 0;" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              <div>
+                <div style="font-weight: 600; font-size: 13px; color: #92400E;">{{ t('btnVoltarPendencia') }}</div>
+                <div style="font-size: 11.5px; color: #B45309; margin-top: 2px;">
+                  {{ currentLang === 'es' ? 'Regresa a estado de análisis/diligencia y abre la mesa de trabajo.' : 'Retorna ao estado em análise/diligência e abre a mesa de trabalho.' }}
+                </div>
+              </div>
+            </button>
+
+            <!-- Opção 3: Apenas Inspecionar -->
+            <button @click="deliberateApenasInspecionar" class="deliberation-action-btn btn-inspect">
+              <svg class="icon-svg" style="width: 22px; height: 22px; color: var(--brand-accent); flex-shrink: 0;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><path d="M22 12c-2.4 4-5.4 6-10 6s-7.6-2-10-6c2.4-4 5.4-6 10-6s7.6 2 10 6z"></path></svg>
+              <div>
+                <div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">{{ t('btnApenasInspecionar') }}</div>
+                <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;">
+                  {{ currentLang === 'es' ? 'Abre la mesa de trabajo y visor sin alterar el estado actual.' : 'Abre a mesa de trabalho e visor sem alterar o estado atual.' }}
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button @click="closeDeliberationModal" class="btn-ui">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 5: CADERNO & RELATÓRIO MENSAL DA REUNIÃO COLEGIADA (EMISSÃO PDF)   -->
+    <!-- ========================================================================= -->
+    <div v-if="showReportModal && reportData" class="report-modal-overlay">
+      
+      <!-- Barra Superior de Controle do Relatório -->
+      <header class="report-modal-toolbar">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button @click="closeReportModal" class="btn-ui btn-ui-sm">
+            ← {{ t('reportCloseBtn') }}
+          </button>
+          <div>
+            <h3 style="font-size: 14px; font-weight: 700; color: var(--brand-primary); margin: 0;">
+              {{ t('reportTitle') }}
+            </h3>
+            <p style="font-size: 11px; color: var(--text-secondary); margin: 0;">
+              {{ currentLang === 'es' ? reportData.mesReferenciaExtensoES : reportData.mesReferenciaExtenso }} • {{ reportData.totalFolhas }} {{ t('reportPageNum') }}s (1 capa + {{ reportData.totalAtivosMes }} protocolos)
+            </p>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);">
+            <span>{{ t('periodLabel') }}</span>
+            <input type="month" v-model="reportTargetMonth" @change="changeReportMonth(reportTargetMonth)" class="input-ui input-ui-compact" style="width: 140px;">
+          </div>
+          <button @click="triggerPrintReport" class="btn-ui btn-ui-save" style="font-weight: 600;">
+            <svg class="icon-svg" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            <span>{{ t('reportPrintBtn') }}</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Área de Pré-Visualização das Folhas A4 -->
+      <div class="report-preview-scroll">
+        
+        <!-- =================================================================== -->
+        <!-- FOLHA 1: CAPA EXECUTIVA / RESUMO DO MÊS PARA A REUNIÃO COLEGIADA     -->
+        <!-- =================================================================== -->
+        <article class="report-sheet-page report-cover-sheet">
+          
+          <!-- Cabeçalho Institucional -->
+          <div class="report-doc-header">
+            <div class="inst-brand">
+              <div class="inst-logo-badge">CEP</div>
+              <div>
+                <div style="font-size: 13px; font-weight: 700; color: #1B365D;">{{ config.nomeCep }}</div>
+                <div style="font-size: 11px; color: #4B5563;">{{ config.instituicao }}</div>
+              </div>
+            </div>
+            <div class="inst-meta">
+              <div><strong>{{ t('reportEmission') }}</strong> {{ reportData.dataEmissao }}</div>
+              <div><strong>{{ t('reportMeetingTarget') }}</strong> {{ reportData.proximaReuniao }}</div>
+            </div>
+          </div>
+
+          <!-- Conteúdo da Capa -->
+          <div class="report-cover-content">
+            
+            <div class="report-hero-title">
+              <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #2B5B84;">
+                {{ t('reportCoverSection') }}
+              </div>
+              <div style="font-size: 15px; font-weight: 800; color: #1B365D; text-transform: uppercase; margin-top: 2px;">
+                {{ t('reportTitle') }}
+              </div>
+              <div style="font-size: 11.5px; color: #4B5563; margin-top: 2px;">
+                Mês de Referência: <strong style="color: #111827;">{{ currentLang === 'es' ? reportData.mesReferenciaExtensoES : reportData.mesReferenciaExtenso }}</strong> • Reunião Ordinária de Análise: <strong style="color: #111827;">{{ reportData.proximaReuniao }}</strong>
+              </div>
+            </div>
+
+            <!-- Grid de Métricas Principais (4 KPIs) -->
+            <div class="report-kpi-row">
+              <div class="report-kpi-cell" style="border-left: 3px solid #6366F1;">
+                <div class="report-kpi-cell-val">{{ reportData.totalNovosMes }}</div>
+                <div class="report-kpi-cell-lbl">{{ t('reportKpiNovosMes') }}</div>
+                <div class="report-kpi-cell-sub">1ª Submissão neste mês</div>
+              </div>
+              <div class="report-kpi-cell" style="border-left: 3px solid #2563EB;">
+                <div class="report-kpi-cell-val">{{ reportData.vueltasMes }}</div>
+                <div class="report-kpi-cell-lbl">{{ t('reportKpiVueltasMes') }}</div>
+                <div class="report-kpi-cell-sub">Histórico total: {{ reportData.vueltasHistoricoTotal }} voltas</div>
+              </div>
+              <div class="report-kpi-cell" style="border-left: 3px solid #D97706;">
+                <div class="report-kpi-cell-val">{{ reportData.pendenciasMes }}</div>
+                <div class="report-kpi-cell-lbl">{{ t('reportKpiPendenciasMes') }}</div>
+                <div class="report-kpi-cell-sub">Histórico total: {{ reportData.pendenciasHistoricoTotal }} pendências</div>
+              </div>
+              <div class="report-kpi-cell" style="border-left: 3px solid #059669;">
+                <div class="report-kpi-cell-val">{{ reportData.pautaReuniaoHoje.length }}</div>
+                <div class="report-kpi-cell-lbl">Em Pauta Hoje</div>
+                <div class="report-kpi-cell-sub">Prontos para julgamento</div>
+              </div>
+            </div>
+
+            <!-- Desempenho da Reunião Anterior (Analítico Solicitado) -->
+            <div class="report-prev-meeting-box">
+              <div class="report-section-heading">
+                <span>{{ t('reportPrevMeetingTitle') }} ({{ reportData.reuniaoAnterior }})</span>
+                <span style="font-size: 10px; font-weight: 500; text-transform: none; color: #6B7280;">Deliberações homologadas no Colegiado</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 11px;">
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 4px;">
+                  <span style="color: #6B7280; font-size: 10px; display: block;">{{ t('reportPrevMeetingAnalyzed') }}</span>
+                  <strong style="font-size: 16px; color: #1B365D; font-family: 'JetBrains Mono', monospace;">{{ reportData.totalAnalisadosReuniaoAnterior }}</strong>
+                </div>
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 4px;">
+                  <span style="color: #059669; font-size: 10px; display: block;">{{ t('reportPrevMeetingApproved') }}</span>
+                  <strong style="font-size: 16px; color: #059669; font-family: 'JetBrains Mono', monospace;">{{ reportData.aprovadosReuniaoAnterior }}</strong>
+                </div>
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 4px;">
+                  <span style="color: #D97706; font-size: 10px; display: block;">{{ t('reportPrevMeetingReturned') }}</span>
+                  <strong style="font-size: 16px; color: #D97706; font-family: 'JetBrains Mono', monospace;">{{ reportData.devolvidosReuniaoAnterior }}</strong>
+                </div>
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 4px;">
+                  <span style="color: #2563EB; font-size: 10px; display: block;">{{ t('reportPrevMeetingApprovalRate') }}</span>
+                  <strong style="font-size: 16px; color: #2563EB; font-family: 'JetBrains Mono', monospace;">{{ reportData.taxaAprovacaoReuniaoAnterior }}%</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pauta da Reunião de Hoje -->
+            <div>
+              <div class="report-section-heading">
+                <span>{{ t('reportPautaTodayTitle') }}</span>
+                <span style="font-size: 10px; font-weight: 600; color: #2563EB;">{{ reportData.pautaReuniaoHoje.length }} protocolos</span>
+              </div>
+              <div v-if="reportData.pautaReuniaoHoje.length === 0" style="padding: 10px; text-align: center; font-size: 11px; color: #6B7280; border: 1px dashed #CBD5E1; border-radius: 4px;">
+                {{ t('reportPautaEmpty') }}
+              </div>
+              <table v-else class="report-table">
+                <thead>
+                  <tr>
+                    <th style="width: 130px;">CAAE / Protocolo</th>
+                    <th>Título do Projeto</th>
+                    <th style="width: 140px;">Pesquisador</th>
+                    <th style="width: 130px;">Relator Designado</th>
+                    <th style="width: 60px; text-align: center;">Voltas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in reportData.pautaReuniaoHoje" :key="item.id">
+                    <td style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;">{{ item.caae }}</td>
+                    <td style="font-weight: 500;">{{ item.titulo }}</td>
+                    <td>{{ item.pesquisador }}</td>
+                    <td style="color: #1B365D; font-weight: 600;">{{ item.relator }}</td>
+                    <td style="text-align: center; font-family: 'JetBrains Mono', monospace;">{{ item.totalRondas }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Gráficos e Indicadores Estratégicos Adicionais -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 2px;">
+              
+              <!-- Top 5 Inconformidades -->
+              <div style="border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px 12px; background: #F8FAFC;">
+                <div style="font-size: 11px; font-weight: 700; color: #1B365D; text-transform: uppercase; margin-bottom: 8px;">
+                  {{ t('reportTopDocIssues') }}
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <div v-for="inc in reportData.topInconformidades" :key="inc.label">
+                    <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 2px;">
+                      <span style="font-weight: 500; color: #1E293B;">{{ inc.label }}</span>
+                      <strong style="color: #1B365D; font-family: 'JetBrains Mono', monospace;">{{ inc.count }} ({{ inc.pct }}%)</strong>
+                    </div>
+                    <div style="width: 100%; height: 5px; background: #E2E8F0; border-radius: 3px; overflow: hidden;">
+                      <div :style="{ width: inc.pct + '%' }" style="height: 100%; background: #1B365D; border-radius: 3px;"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Distribuição por Relator e Eficiência -->
+              <div style="border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px 12px; background: #F8FAFC; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                  <div style="font-size: 11px; font-weight: 700; color: #1B365D; text-transform: uppercase; margin-bottom: 6px;">
+                    {{ t('reportRelatorWorkload') }}
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 4px; max-height: 80px; overflow-y: auto;">
+                    <div v-for="rel in reportData.distribuicaoRelatores" :key="rel.nome" style="display: flex; justify-content: space-between; font-size: 10.5px; border-bottom: 1px dotted #CBD5E1; padding-bottom: 2px;">
+                      <span style="color: #334155;">{{ rel.nome }}</span>
+                      <strong style="color: #1B365D; font-family: 'JetBrains Mono', monospace;">{{ rel.total }} processo(s)</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 4px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+                  <span style="font-size: 10.5px; font-weight: 600; color: #4B5563;">{{ t('reportAverageRounds') }}:</span>
+                  <strong style="font-size: 13px; color: #059669; font-family: 'JetBrains Mono', monospace;">{{ reportData.mediaVueltasAprovacao }} voltas</strong>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Rodapé Oficial da Folha -->
+          <div class="report-doc-footer">
+            <span>{{ config.nomeCep }} • {{ config.instituicao }}</span>
+            <span>{{ t('reportPageNum') }} 1 {{ t('reportPageOf') }} {{ reportData.totalFolhas }}</span>
+          </div>
+
+        </article>
+
+        <!-- =================================================================== -->
+        <!-- FOLHAS SEGUINTES: PROJETOS NOVOS NO MÊS (UMA POR PÁGINA)           -->
+        <!-- =================================================================== -->
+        <article v-for="(p, pIdx) in reportData.projetosNovos" :key="p.id" class="report-sheet-page report-project-sheet">
+          
+          <!-- Cabeçalho da Folha do Projeto -->
+          <div class="report-doc-header">
+            <div class="inst-brand">
+              <div class="inst-logo-badge">CEP</div>
+              <div>
+                <div style="font-size: 12px; font-weight: 700; color: #1B365D;">{{ config.nomeCep }}</div>
+                <div style="font-size: 10.5px; color: #4B5563;">Ficha Individual de Protocolo • Reunião: {{ reportData.proximaReuniao }}</div>
+              </div>
+            </div>
+            <div class="inst-meta">
+              <span class="badge-status badge-status-analise" style="font-size: 10px;">{{ t('reportTagNew') }}</span>
+              <div style="margin-top: 2px;">1ª Submissão: <strong style="font-family: 'JetBrains Mono', monospace;">{{ formatDateBR(p.data_primeira_submissao) }}</strong></div>
+            </div>
+          </div>
+
+          <!-- Conteúdo do Projeto -->
+          <div class="report-project-content">
+            
+            <!-- Cartão com Dados Cadastrais -->
+            <div class="report-project-card-header">
+              <div class="report-project-title-bar">
+                <div>
+                  <div style="font-size: 10px; font-weight: 700; color: #2B5B84; text-transform: uppercase;">
+                    CAAE: {{ p.caae }}
+                  </div>
+                  <div style="font-size: 13.5px; font-weight: 700; color: #1B365D; line-height: 1.35; margin-top: 2px;">
+                    {{ p.titulo }}
+                  </div>
+                </div>
+                <div>
+                  <span v-if="p.status === 'em_pauta'" class="badge-status badge-status-pauta">{{ t('statusEmPauta') }}</span>
+                  <span v-else-if="p.status === 'aprovado'" class="badge-status badge-status-aprovado">{{ t('statusAprovado') }}</span>
+                  <span v-else class="badge-status badge-status-analise">{{ t('statusEmAnalise') }}</span>
+                </div>
+              </div>
+
+              <div class="report-meta-grid">
+                <div class="report-meta-item">
+                  <strong>Pesquisador(a) Responsável:</strong>
+                  <span>{{ p.pesquisador }}</span>
+                </div>
+                <div class="report-meta-item">
+                  <strong>Instituição Vinculada:</strong>
+                  <span>{{ p.instituicao }}</span>
+                </div>
+                <div class="report-meta-item">
+                  <strong>Relator Designado:</strong>
+                  <span style="font-weight: 600; color: #1B365D;">{{ p.relator }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Linha do Tempo de Tramitação e Pendências -->
+            <div style="flex: 1; display: flex; flex-direction: column;">
+              <div class="report-section-heading">
+                <span>{{ t('reportTimelineTitle') }}</span>
+                <span style="font-size: 10px; font-weight: 600; color: #4B5563;">{{ p.timelineEvents.length }} registro(s)</span>
+              </div>
+
+              <div class="report-timeline">
+                <div v-for="(ev, evIdx) in p.timelineEvents" :key="evIdx" class="timeline-event-item" :class="'is-' + ev.tipo">
+                  <div class="timeline-event-marker"></div>
+                  
+                  <div class="timeline-event-header">
+                    <span class="timeline-event-badge" :class="ev.badgeClass">{{ ev.badge }}</span>
+                    <strong style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #1B365D;">{{ formatDateBR(ev.data) }}</strong>
+                  </div>
+
+                  <div class="timeline-event-body">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <strong style="color: #1B365D; font-size: 12px;">{{ ev.titulo }}</strong>
+                      <span v-if="ev.relator" style="font-size: 10.5px; color: #4B5563;">Relator: <strong>{{ ev.relator }}</strong></span>
+                    </div>
+                    <div style="font-size: 11px; color: #4B5563; margin-top: 2px;">{{ ev.descricao }}</div>
+
+                    <!-- Lista Apenas com os Títulos das Pendências -->
+                    <div v-if="ev.pendencias && ev.pendencias.length > 0" class="timeline-pendencias-block">
+                      <div style="font-size: 10px; font-weight: 700; color: #92400E; text-transform: uppercase; margin-bottom: 4px;">
+                        Não-conformidades identificadas nesta rodada:
+                      </div>
+                      <div v-for="(pendTitle, pndIdx) in ev.pendencias" :key="pndIdx" class="timeline-pendencia-item">
+                        <span class="timeline-pendencia-bullet">•</span>
+                        <span>{{ pendTitle }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Rodapé Oficial da Folha -->
+          <div class="report-doc-footer">
+            <span>{{ config.nomeCep }} • {{ p.titulo.substring(0, 40) }}...</span>
+            <span>{{ t('reportPageNum') }} {{ 2 + pIdx }} {{ t('reportPageOf') }} {{ reportData.totalFolhas }}</span>
+          </div>
+
+        </article>
+
+        <!-- =================================================================== -->
+        <!-- FOLHAS SEGUINTES: PROJETOS RECORRENTES (UMA POR PÁGINA)             -->
+        <!-- =================================================================== -->
+        <article v-for="(p, rIdx) in reportData.projetosRecorrentes" :key="p.id" class="report-sheet-page report-project-sheet">
+          
+          <!-- Cabeçalho da Folha do Projeto -->
+          <div class="report-doc-header">
+            <div class="inst-brand">
+              <div class="inst-logo-badge">CEP</div>
+              <div>
+                <div style="font-size: 12px; font-weight: 700; color: #1B365D;">{{ config.nomeCep }}</div>
+                <div style="font-size: 10.5px; color: #4B5563;">Ficha de Protocolo Recorrente • Reunião: {{ reportData.proximaReuniao }}</div>
+              </div>
+            </div>
+            <div class="inst-meta">
+              <span class="badge-status badge-status-pauta" style="font-size: 10px;">{{ t('reportTagRecurrent') }}</span>
+              <div style="margin-top: 2px;">1ª Submissão Original: <strong style="font-family: 'JetBrains Mono', monospace;">{{ formatDateBR(p.data_primeira_submissao) }}</strong></div>
+            </div>
+          </div>
+
+          <!-- Conteúdo do Projeto -->
+          <div class="report-project-content">
+            
+            <!-- Cartão com Dados Cadastrais -->
+            <div class="report-project-card-header">
+              <div class="report-project-title-bar">
+                <div>
+                  <div style="font-size: 10px; font-weight: 700; color: #2B5B84; text-transform: uppercase;">
+                    CAAE: {{ p.caae }} • {{ p.totalRondasHistorico }} rodadas acumuladas
+                  </div>
+                  <div style="font-size: 13.5px; font-weight: 700; color: #1B365D; line-height: 1.35; margin-top: 2px;">
+                    {{ p.titulo }}
+                  </div>
+                </div>
+                <div>
+                  <span v-if="p.status === 'em_pauta'" class="badge-status badge-status-pauta">{{ t('statusEmPauta') }}</span>
+                  <span v-else-if="p.status === 'aprovado'" class="badge-status badge-status-aprovado">{{ t('statusAprovado') }}</span>
+                  <span v-else class="badge-status badge-status-analise">{{ t('statusEmAnalise') }}</span>
+                </div>
+              </div>
+
+              <div class="report-meta-grid">
+                <div class="report-meta-item">
+                  <strong>Pesquisador(a) Responsável:</strong>
+                  <span>{{ p.pesquisador }}</span>
+                </div>
+                <div class="report-meta-item">
+                  <strong>Instituição Vinculada:</strong>
+                  <span>{{ p.instituicao }}</span>
+                </div>
+                <div class="report-meta-item">
+                  <strong>Relator Designado:</strong>
+                  <span style="font-weight: 600; color: #1B365D;">{{ p.relator }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Caixa de Contexto do Mês Anterior (Solicitada pelo usuário) -->
+            <div v-if="p.contextoMesAnterior" class="report-context-box">
+              <div style="font-weight: 700; font-size: 11px; text-transform: uppercase; margin-bottom: 2px;">
+                {{ t('reportContextPreviousMonth') }}
+              </div>
+              <div>{{ p.contextoMesAnterior.resumo }}</div>
+              <div v-if="p.contextoMesAnterior.pendenciasAnteriores && p.contextoMesAnterior.pendenciasAnteriores.length > 0" style="margin-top: 4px; font-size: 10.5px;">
+                <em>Pendências pendentes no encerramento anterior:</em>
+                <span v-for="(pnd, idx) in p.contextoMesAnterior.pendenciasAnteriores" :key="idx" style="display: block; margin-left: 6px;">
+                  • {{ pnd }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Linha do Tempo: EXCLUSIVAMENTE ALTERAÇÕES REALIZADAS NESTE MÊS -->
+            <div style="flex: 1; display: flex; flex-direction: column;">
+              <div class="report-section-heading">
+                <span>Alterações e Eventos Realizados Exclusivamente Neste Mês</span>
+                <span style="font-size: 10px; font-weight: 600; color: #4B5563;">{{ p.timelineEvents.length }} evento(s)</span>
+              </div>
+
+              <div v-if="p.timelineEvents.length === 0" style="padding: 16px; text-align: center; color: #6B7280; font-size: 11.5px; border: 1px dashed #CBD5E1; border-radius: 4px;">
+                Nenhuma alteração ou parecer emitido no mês corrente. Aguardando entrega de diligências pelo pesquisador.
+              </div>
+
+              <div v-else class="report-timeline">
+                <div v-for="(ev, evIdx) in p.timelineEvents" :key="evIdx" class="timeline-event-item" :class="'is-' + ev.tipo">
+                  <div class="timeline-event-marker"></div>
+                  
+                  <div class="timeline-event-header">
+                    <span class="timeline-event-badge" :class="ev.badgeClass">{{ ev.badge }}</span>
+                    <strong style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #1B365D;">{{ formatDateBR(ev.data) }}</strong>
+                  </div>
+
+                  <div class="timeline-event-body">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <strong style="color: #1B365D; font-size: 12px;">{{ ev.titulo }}</strong>
+                      <span v-if="ev.relator" style="font-size: 10.5px; color: #4B5563;">Relator: <strong>{{ ev.relator }}</strong></span>
+                    </div>
+                    <div style="font-size: 11px; color: #4B5563; margin-top: 2px;">{{ ev.descricao }}</div>
+
+                    <!-- Lista Apenas com os Títulos das Pendências -->
+                    <div v-if="ev.pendencias && ev.pendencias.length > 0" class="timeline-pendencias-block">
+                      <div style="font-size: 10px; font-weight: 700; color: #92400E; text-transform: uppercase; margin-bottom: 4px;">
+                        Pendências identificadas nesta reanálise:
+                      </div>
+                      <div v-for="(pendTitle, pndIdx) in ev.pendencias" :key="pndIdx" class="timeline-pendencia-item">
+                        <span class="timeline-pendencia-bullet">•</span>
+                        <span>{{ pendTitle }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Rodapé Oficial da Folha -->
+          <div class="report-doc-footer">
+            <span>{{ config.nomeCep }} • {{ p.titulo.substring(0, 40) }}...</span>
+            <span>{{ t('reportPageNum') }} {{ 2 + reportData.projetosNovos.length + rIdx }} {{ t('reportPageOf') }} {{ reportData.totalFolhas }}</span>
+          </div>
+
+        </article>
+
+      </div>
+
+    </div>
+
+    <!-- Inputs Ocultos de Arquivos (Novos e Substituição Individual) -->
+    <input type="file" ref="folderFileInput" multiple webkitdirectory @change="onFilesSelectedFromDisk" style="display: none;">
+    <input type="file" ref="multiFileInput" multiple @change="onFilesSelectedFromDisk" style="display: none;">
+    <input type="file" ref="replaceFileInput" @change="onReplaceFileSelected" style="display: none;">
+
+  </div>
+
+  <!-- SCRIPTS DA APLICAÇÃO -->
+  <script src="js/database_pendencias.js"></script>
+  <script src="js/rules_engine.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/viewer.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

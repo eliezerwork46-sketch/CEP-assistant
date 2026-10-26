@@ -1,0 +1,19 @@
+# Logs & Temporaries
+*.log
+*.tmp
+*.bak
+*.pyc
+__pycache__/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local data & testing
+scratch/
+registro_cep.json
+config_cep.json
+*.xlsx
+*.csv
