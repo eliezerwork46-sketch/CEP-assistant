@@ -23,9 +23,12 @@ const I18N_DICTIONARY = {
 
     // Status e Filtros
     statusEmAnalise: 'Em Análise',
+    statusAindaNaoRelatado: 'Ainda não relatado',
+    statusEmRelatoria: 'Em Relatoria',
     statusEmPauta: 'Em Pauta da Reunião',
     statusAprovado: 'Aprovado / Arquivado',
     filterTodos: 'Todos',
+    semRelator: 'Sem Relator',
 
     // Painel de Gestão e Indicadores
     dashTitle: 'Painel de Gestão & Indicadores do CEP',
@@ -41,6 +44,7 @@ const I18N_DICTIONARY = {
     kpiEmPauta: 'Em Pauta da Reunião',
     kpiAprovados: 'Aprovados no Período',
     kpiTaxaAprovacao: 'Taxa de Aprovação',
+    chartDistribuicao: 'Distribuição de Protocolos por Estado',
     chartTopPendencias: 'Top 5 Documentos com Inconformidades',
 
     // Caderno / Relatório Colegiado em PDF
@@ -178,7 +182,87 @@ const I18N_DICTIONARY = {
     btnCreatePendencia: '+ Criar Nova Pendência Padronizada',
     newCategoryNamePrompt: 'Digite o nome da nova categoria (ex: Biobanco, Ensaios Clínicos):',
     newPendenciaTitle: 'Título curto da pendência:',
-    newPendenciaTemplate: 'Texto padrão completo que sairá no parecer:'
+    newPendenciaTemplate: 'Texto padrão completo que sairá no parecer:',
+
+    // Fase 1: Hash SHA-256, Versionamento e Histórico
+    duplicateHashTitle: 'Arquivo Duplicado Detectado (SHA-256)',
+    duplicateHashMsg: 'Processo interrompido: o arquivo "{newFile}" possui exatamente o mesmo hash SHA-256 do documento "{existingFile}" já existente neste projeto. Nenhum arquivo foi duplicado ou alterado.',
+    uploadModalTitle: 'Classificação e Versionamento de Arquivos (SHA-256)',
+    uploadModalSubtitle: 'Hash SHA-256 validado como inédito no projeto. Indique para cada arquivo se é nova versão ou documento novo:',
+    uploadOptVersion: 'Opção A — É uma nova versão de documento existente',
+    uploadOptNew: 'Opção B — É um documento novo',
+    uploadSelectTargetDoc: 'Selecione qual documento está sendo substituído:',
+    uploadSelectCategory: 'Selecione a categoria / tipo do documento:',
+    uploadConfirmBtn: 'Confirmar e Integrar Arquivo(s)',
+    docDetailTitle: 'Detalhes do Documento, Versões e Hash SHA-256',
+    docDetailBtn: 'ℹ️ Detalhes / Histórico',
+    docPreviousNamesTitle: 'Histórico de Nomes e Versões Anteriores',
+    docNoPreviousNames: 'Nenhum nome ou versão anterior registrado para este documento.',
+    docInheritedPendenciasWarn: 'Pendência(s) herdada(s) da versão anterior aguardando verificação nesta nova versão:',
+    btnVerifyResolved: '✓ Marcar como Sanada',
+    pendHistoryBtn: '🕒 Histórico de Pendências',
+    pendHistoryModalTitle: 'Histórico de Pendências por Documento e Data/Período',
+    pendHistoryFilterDoc: 'Documento:',
+    pendHistoryAllDocs: 'Todos os documentos do projeto',
+    pendHistoryModeAll: 'Todo o Histórico',
+    pendHistoryModeExact: 'Data Exata',
+    pendHistoryModeRange: 'Rango de Datas',
+    pendHistoryEmpty: 'Nenhuma pendência encontrada para o filtro selecionado.',
+    pendStateActive: 'Ativa',
+    pendStateResolved: 'Resolvida / Limpa',
+
+    // Fase 2: Limpar Pendências, Multidocumento, Categorias, Tipo de Projeto e Áreas Temáticas
+    btnClearAllPendencias: '🧹 Limpar Todas as Pendências',
+    confirmClearAllPendencias: 'Tem certeza que deseja limpar TODAS as pendências ativas deste projeto?\n\n• Todos os documentos enviados e suas versões atuais permanecerão intactos.\n• A limpeza ficará registrada no histórico de pendências para rastreabilidade.',
+    multiDocPendenciaLabel: 'Documentos vinculados a esta pendência (multisseleção):',
+    docGeralProtocolo: 'Geral / Protocolo (sem arquivo específico)',
+    missingCategoriesLabel: 'Selecione as categorias/arquivos separados ausentes:',
+    fieldTipoProjeto: 'Tipo de Projeto:',
+    tipoProjDetalhado: 'Projeto Detalhado',
+    tipoProjInfoBasicas: 'Informações Básicas',
+    tipoProjRelatoCaso: 'Relato de Caso',
+    tipoProjEmenda: 'Emenda',
+    tipoProjOutro: 'Outro',
+    fieldAreasTematicas: 'Áreas Temáticas Especiais:',
+    areaGenetica: 'Genética Humana',
+    areaReproducao: 'Reprodução Humana',
+    areaEquipamentos: 'Novos Equipamentos / Medicamentos',
+    areaBiosseguranca: 'Biossegurança',
+    areaEstrangeira: 'Participação Estrangeira',
+    areaVirtual: 'Ambiente Virtual (Online)',
+
+    // Fase 3: Pauta, Relatoria e Análise Imediata
+    btnApproveDirect: '✓ Aprovar',
+    btnApproveAllPauta: '✓ Aprovar Pauta',
+    btnSendRelatoria: '📤 Enviar para Relatoria',
+    btnSendPauta: '📋 Enviar para Pauta',
+    btnAnalyzeProject: '🔍 Analisar e Criar Pastas →',
+    relatoriaWithPendenciasWarn: 'Atenção: Este projeto ainda possui {count} pendência(s) aberta(s). Ele será enviado para relatoria mantendo o registro das pendências. Deseja prosseguir?',
+    relatoriaOpenPendenciasNotice: 'Em Relatoria com pendências abertas',
+
+    // Fase 4: Reuniões Reprogramáveis e Caderno Personalizado
+    cfgMeetingsTab: '3. Calendário de Reuniões',
+    btnRescheduleMeeting: '📅 Reprogramar Reunião',
+    meetingIntervalLabel: 'Intervalo do ciclo:',
+    shortcut1M: 'Último mês',
+    shortcut2M: '2 meses',
+    shortcut3M: '3 meses',
+    shortcut1Y: '1 ano',
+    shortcutCycle: 'Ciclo atual',
+    dateFrom: 'De:',
+    dateTo: 'Até:',
+    reportPeriodCover: 'Resumo do Período para a Reunião',
+    reportKpiNovosPeriodo: 'Novos Protocolos no Período',
+    reportKpiVueltasPeriodo: 'Voltas / Diligências no Período',
+    reportKpiPendenciasPeriodo: 'Pendências no Período',
+
+    // Fase 5: Visor .doc e Catálogo de Instituições
+    cfgInstituicoesTab: '4. Catálogo de Instituições',
+    instSaveToCatalog: '+ Salvar no catálogo',
+    instSavedBadge: '✓ Cadastrada',
+    instCatalogEmpty: 'Catálogo vazio. Digite uma instituição e clique em "+ Salvar no catálogo" para registrá-la.',
+    docLegacyNotice: 'Arquivo Word legado (.doc binário OLE2) — texto extraído de forma limpa com remoção de códigos binários.',
+    docComplexWarn: 'Aviso: Este arquivo .doc contém formatação proprietária complexa. Caso falte algum elemento visual/tabela, solicite o envio em PDF conforme a Norma Operacional CNS nº 001/2013.'
   },
   'es': {
     appName: 'CEP Assistant',
@@ -198,9 +282,12 @@ const I18N_DICTIONARY = {
 
     // Status e Filtros
     statusEmAnalise: 'En Análisis',
+    statusAindaNaoRelatado: 'Aún no relatado',
+    statusEmRelatoria: 'En Relatoría',
     statusEmPauta: 'En Pauta de la Reunión',
     statusAprovado: 'Aprobado / Archivado',
     filterTodos: 'Todos',
+    semRelator: 'Sin Relator',
 
     // Painel de Gestão e Indicadores
     dashTitle: 'Panel de Gestión & Indicadores del CEP',
@@ -215,6 +302,7 @@ const I18N_DICTIONARY = {
     kpiEmDiligencia: 'En Diligencia / Corrección',
     kpiEmPauta: 'En Pauta de la Reunión',
     kpiAprovados: 'Aprobados en el Período',
+    kpiTaxaAprovacao: 'Tasa de Aprobación',
     chartDistribuicao: 'Distribución de Protocolos por Estado',
     chartTopPendencias: 'Top 5 Documentos con Inconformidades',
 
@@ -353,7 +441,87 @@ const I18N_DICTIONARY = {
     btnCreatePendencia: '+ Crear Nueva Pendencia Estandarizada',
     newCategoryNamePrompt: 'Escriba el nombre de la nueva categoría (ej: Biobanco, Ensayos Clínicos):',
     newPendenciaTitle: 'Título corto de la pendencia:',
-    newPendenciaTemplate: 'Texto estándar completo que saldrá en la notificación:'
+    newPendenciaTemplate: 'Texto estándar completo que saldrá en la notificación:',
+
+    // Fase 1: Hash SHA-256, Versionado e Historial
+    duplicateHashTitle: 'Archivo Duplicado Detectado (SHA-256)',
+    duplicateHashMsg: 'Proceso detenido: el archivo "{newFile}" posee exactamente el mismo hash SHA-256 que el documento "{existingFile}" ya existente en este proyecto. No se duplicó ni modificó ningún archivo.',
+    uploadModalTitle: 'Clasificación y Versionado de Archivos (SHA-256)',
+    uploadModalSubtitle: 'Hash SHA-256 validado como inédito en el proyecto. Indique para cada archivo si es una nueva versión o un documento nuevo:',
+    uploadOptVersion: 'Opción A — Es una nueva versión de un documento existente',
+    uploadOptNew: 'Opción B — Es un documento nuevo',
+    uploadSelectTargetDoc: 'Seleccione de qué documento existente es nueva versión:',
+    uploadSelectCategory: 'Seleccione la categoría / tipo del documento:',
+    uploadConfirmBtn: 'Confirmar e Integrar Archivo(s)',
+    docDetailTitle: 'Detalles del Documento, Versiones y Hash SHA-256',
+    docDetailBtn: 'ℹ️ Detalles / Historial',
+    docPreviousNamesTitle: 'Historial de Nombres y Versiones Anteriores',
+    docNoPreviousNames: 'Ningún nombre o versión anterior registrado para este documento.',
+    docInheritedPendenciasWarn: 'Pendencia(s) heredada(s) de la versión anterior pendientes de verificar en esta nueva versión:',
+    btnVerifyResolved: '✓ Marcar como Subsanada',
+    pendHistoryBtn: '🕒 Historial de Pendencias',
+    pendHistoryModalTitle: 'Historial de Pendencias por Documento y Fecha/Período',
+    pendHistoryFilterDoc: 'Documento:',
+    pendHistoryAllDocs: 'Todos los documentos del proyecto',
+    pendHistoryModeAll: 'Todo el Historial',
+    pendHistoryModeExact: 'Fecha Exacta',
+    pendHistoryModeRange: 'Rango de Fechas',
+    pendHistoryEmpty: 'No se encontraron pendencias para el filtro seleccionado.',
+    pendStateActive: 'Activa',
+    pendStateResolved: 'Resuelta / Limpia',
+
+    // Fase 2: Limpiar Pendencias, Multidocumento, Categorías, Tipo de Proyecto y Áreas Temáticas
+    btnClearAllPendencias: '🧹 Limpiar Todas las Pendencias',
+    confirmClearAllPendencias: '¿Está seguro de que desea borrar TODAS las pendencias activas de este proyecto?\n\n• Todos los documentos subidos y sus versiones actuales se mantendrán intactos.\n• El evento quedará registrado en el historial de pendencias para trazabilidad.',
+    multiDocPendenciaLabel: 'Documentos vinculados a esta pendencia (multiselección):',
+    docGeralProtocolo: 'General / Protocolo (sin archivo específico)',
+    missingCategoriesLabel: 'Seleccione las categorías/archivos separados faltantes:',
+    fieldTipoProjeto: 'Tipo de Proyecto:',
+    tipoProjDetalhado: 'Proyecto Detallado',
+    tipoProjInfoBasicas: 'Informações Básicas',
+    tipoProjRelatoCaso: 'Reporte de Caso',
+    tipoProjEmenda: 'Enmienda',
+    tipoProjOutro: 'Otro',
+    fieldAreasTematicas: 'Áreas Temáticas Especiales:',
+    areaGenetica: 'Genética Humana',
+    areaReproducao: 'Reproducción Humana',
+    areaEquipamentos: 'Nuevos Equipos / Medicamentos',
+    areaBiosseguranca: 'Bioseguridad',
+    areaEstrangeira: 'Participación Extranjera',
+    areaVirtual: 'Ambiente Virtual (Online)',
+
+    // Fase 3: Pauta, Relatoría y Análisis Inmediato
+    btnApproveDirect: '✓ Aprobar',
+    btnApproveAllPauta: '✓ Aprobar Pauta',
+    btnSendRelatoria: '📤 Enviar a Relatoría',
+    btnSendPauta: '📋 Enviar a Pauta',
+    btnAnalyzeProject: '🔍 Analizar y Crear Carpetas →',
+    relatoriaWithPendenciasWarn: 'Atención: Este proyecto aún tiene {count} pendencia(s) abierta(s). Se enviará a relatoría conservando el registro de pendencias. ¿Desea continuar?',
+    relatoriaOpenPendenciasNotice: 'En Relatoría con pendencias abiertas',
+
+    // Fase 4: Reuniones Reprogramables y Cuaderno Personalizado
+    cfgMeetingsTab: '3. Calendario de Reuniones',
+    btnRescheduleMeeting: '📅 Reprogramar Reunión',
+    meetingIntervalLabel: 'Intervalo del ciclo:',
+    shortcut1M: 'Último mes',
+    shortcut2M: '2 meses',
+    shortcut3M: '3 meses',
+    shortcut1Y: '1 año',
+    shortcutCycle: 'Ciclo actual',
+    dateFrom: 'Desde:',
+    dateTo: 'Hasta:',
+    reportPeriodCover: 'Resumen del Período para la Reunión',
+    reportKpiNovosPeriodo: 'Nuevos Protocolos en el Período',
+    reportKpiVueltasPeriodo: 'Vueltas / Diligencias en el Período',
+    reportKpiPendenciasPeriodo: 'Pendencias en el Período',
+
+    // Fase 5: Visor .doc y Catálogo de Instituciones
+    cfgInstituicoesTab: '4. Catálogo de Instituciones',
+    instSaveToCatalog: '+ Guardar en catálogo',
+    instSavedBadge: '✓ Registrada',
+    instCatalogEmpty: 'Catálogo vacío. Escriba una institución y pulse "+ Guardar en catálogo" para registrarla.',
+    docLegacyNotice: 'Archivo Word antiguo (.doc binario OLE2) — texto extraído de forma limpia filtrando códigos binarios.',
+    docComplexWarn: 'Aviso: Este archivo .doc contiene formato propietario complejo. Si falta algún elemento visual o tabla, se recomienda solicitar el envío en PDF según la Norma Operacional CNS nº 001/2013.'
   }
 };
 

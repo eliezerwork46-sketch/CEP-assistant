@@ -162,21 +162,24 @@ html, body {
 
 /* Sub-barra de Ações e Contexto */
 .app-subbar {
-  height: 32px;
+  min-height: 34px;
+  height: auto;
   background-color: var(--surface-secondary);
-  padding: 0 12px;
+  padding: 4px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .toolbar-cluster {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 /* Botões Limpos de Plataforma */
@@ -517,10 +520,11 @@ input[type="checkbox"] {
   background-color: var(--surface-primary);
 }
 
-/* Barras de Controle do Visor (Esquerda) — Em Linha Única Sem Quebra */
+/* Barras de Controle do Visor (Esquerda) */
 .viewer-bar {
-  height: 33px;
-  padding: 3px 8px;
+  min-height: 34px;
+  height: auto;
+  padding: 4px 8px;
   background-color: var(--surface-primary);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
@@ -528,6 +532,7 @@ input[type="checkbox"] {
   justify-content: space-between;
   gap: 6px;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .viewer-left-controls {
@@ -536,7 +541,7 @@ input[type="checkbox"] {
   gap: 5px;
   flex: 1;
   min-width: 0;
-  overflow-x: auto;
+  flex-wrap: wrap;
 }
 
 .viewer-right-controls {
@@ -992,6 +997,152 @@ mark {
 
 .badge-status-aprovado .badge-dot {
   background-color: #10B981;
+}
+
+.badge-status-nao-relatado {
+  background-color: #F1F5F9;
+  color: #334155;
+  border: 1px solid #CBD5E1;
+}
+
+.badge-status-nao-relatado .badge-dot {
+  background-color: #64748B;
+}
+
+.badge-status-relatoria {
+  background-color: #F3E8FF;
+  color: #6B21A8;
+  border: 1px solid #D8B4FE;
+}
+
+.badge-status-relatoria .badge-dot {
+  background-color: #9333EA;
+}
+
+/* Autocompletado de Instituições e Popovers de Multisseleção */
+.inst-autocomplete-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inst-suggestions-dropdown {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  min-width: 240px;
+  max-width: 360px;
+  max-height: 210px;
+  overflow-y: auto;
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+  z-index: 1200;
+  padding: 4px;
+}
+
+.inst-suggestion-item {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inst-suggestion-item:hover {
+  background-color: var(--brand-accent-subtle);
+  color: var(--brand-primary);
+}
+
+.areas-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.area-chip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border: 1px solid var(--border-medium);
+  background-color: var(--surface-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.12s ease;
+}
+
+.area-chip-label.checked {
+  background-color: var(--brand-accent-subtle);
+  border-color: var(--brand-accent);
+  color: var(--brand-primary);
+  font-weight: 600;
+}
+
+.areas-popover-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 340px;
+  max-height: 320px;
+  overflow-y: auto;
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+  padding: 10px;
+  z-index: 1100;
+}
+
+.multidoc-selector-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.multidoc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--border-medium);
+  background-color: var(--surface-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.multidoc-chip.active {
+  background-color: var(--status-warn-bg);
+  border-color: var(--status-warn-border);
+  color: var(--status-warn);
+  font-weight: 600;
+}
+
+.upload-option-card {
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background-color: var(--surface-primary);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.upload-option-card.active {
+  border-color: var(--brand-accent);
+  background-color: var(--brand-accent-subtle);
 }
 
 @keyframes pulseAmber {

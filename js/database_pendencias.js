@@ -74,6 +74,7 @@ Para a tramitação e análise de emendas ao protocolo de pesquisa na Plataforma
         title: 'Documentos pendentes não anexados (Lista personalizável)',
         title_es: 'Documentos pendientes no adjuntados (Lista personalizable)',
         normativa: 'Norma Operacional CNS nº 001/2013, Item 3.2',
+        hasCategoryCheckboxes: true,
         template: `Documentos Pendentes Não Anexados:
 Identificou-se a ausência de documentos obrigatórios para a continuidade da tramitação ética deste protocolo. Solicita-se providenciar a submissão dos seguintes arquivos na aba correspondente da Plataforma Brasil:
 - [LISTAR DOCUMENTOS FALTANTES EX: FOLHA DE ROSTO ASSINADA / TERMO DE ANUÊNCIA / TCUD / INSTRUMENTO DE COLETA].`
@@ -109,6 +110,29 @@ Opção A (Inconsistência Institucional): Solicitamos o retorno deste protocolo
 Opção B (Recusa Operacional por Sobrecarga de Pauta):
 À Instância Nacional de Ética em Pesquisa (INAEP),
 Informamos que, devido ao elevado fluxo de protocolos em análise e à sobrecarga da nossa pauta de avaliações colegiadas, o CEP/UCDB não dispõe de condições operacionais para assumir a relatoria do presente projeto no momento. Desta forma, solicitamos a redistribuição do processo a outro comitê credenciado.`
+      },
+      {
+        id: 'P-GEN-12',
+        title: 'Ausência de arquivo separado na categoria de:',
+        title_es: 'Ausencia de archivo separado en la categoría de:',
+        normativa: 'Norma Operacional CNS nº 001/2013, Item 3.2',
+        hasCategoryCheckboxes: true,
+        template: `Ausência de arquivo separado na categoria de: [SELECIONE AS CATEGORIAS FALTANTES]. Solicita-se que cada um dos documentos indicados seja submetido em arquivo individualizado e separado na respectiva categoria da Plataforma Brasil, em conformidade com a Norma Operacional CNS nº 001/2013 (Item 3.2).`
+      },
+      {
+        id: 'P-GEN-13',
+        title: 'Deve eliminar o campo de preencher nome dos participantes no questionário da entrevista',
+        title_es: 'Debe eliminar el campo para completar el nombre de los participantes en el cuestionario de la entrevista',
+        normativa: 'Resolução CNS nº 466/2012, Item IV.3.e; Resolução CNS nº 510/2016, Art. 9º, V e LGPD (Lei nº 13.709/2018)',
+        template: `Deve eliminar o campo de preencher nome dos participantes no questionário da entrevista, substituindo qualquer identificação nominal por códigos alfanuméricos impessoais (ex: P01, P02), de modo a garantir o anonimato, o sigilo e a confidencialidade dos participantes em conformidade com a Resolução CNS nº 466/2012 (Item IV.3.e), a Resolução CNS nº 510/2016 e a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 - LGPD).`
+      },
+      {
+        id: 'P-GEN-14',
+        title: 'Este CEP não tem afinidade por ser hospitalar',
+        title_es: 'Este CEP no tiene afinidad por ser hospitalario',
+        normativa: 'Norma Operacional CNS nº 001/2013 e Lei Federal nº 14.874/2024 (INAEP)',
+        onlyFirstSubmission: true,
+        template: `Este CEP não tem afinidade por ser hospitalar: À Instância Nacional de Ética em Pesquisa (INAEP/CONEP), informamos que o presente protocolo caracteriza-se como estudo de natureza estritamente hospitalar/clínico-assistencial sem vínculo institucional proponente com esta universidade, fugindo ao escopo e afinidade técnico-operacional deste Comitê de Ética em Pesquisa acadêmico. Solicita-se, portanto, a redistribuição do protocolo a um CEP com perfil e afinidade hospitalar.`
       }
     ]
   },
@@ -294,6 +318,28 @@ A Resolução CNS nº 510/2016, Art. 12, determina que em pesquisas envolvendo c
         normativa: 'Resolução CNS nº 510/2016',
         template: `Enquadramento em Ciências Humanas e Sociais (Resolução CNS nº 510/2016):
 Identificou-se que os documentos do protocolo fazem referências exclusivas à Resolução CNS nº 466/2012. Sendo a metodologia do presente projeto voltada à área de Ciências Humanas e Sociais (CHS), solicita-se adequar o texto do Projeto Detalhado, TCLE e demais documentos anexos para fundamentar-se integralmente na Resolução CNS nº 510/2016, respeitando suas diretrizes conceituais, terminológicas e procedimentais específicas.`
+      }
+    ]
+  },
+  {
+    id: 'informacoes_basicas',
+    name: 'Informações Básicas do Projeto',
+    name_es: 'Informaciones Básicas del Proyecto',
+    icon: 'document-duplicate',
+    pendencias: [
+      {
+        id: 'P-IB-01',
+        title: 'Divergência de informações entre Informações Básicas do Projeto e Projeto Detalhado',
+        title_es: 'Divergencia entre Informaciones Básicas del Proyecto y Proyecto Detallado',
+        normativa: 'Norma Operacional CNS nº 001/2013, Item 3.4',
+        template: `Alinhamento com as Informações Básicas do Projeto (Plataforma Brasil): Constataram-se divergências entre os dados preenchidos no formulário eletrônico "Informações Básicas do Projeto" da Plataforma Brasil e o conteúdo do Projeto Detalhado / TCLE (tais como tamanho amostral, critérios de inclusão/exclusão, cronograma, orçamento ou descrição de riscos e benefícios). Solicita-se uniformizar rigorosamente todas as informações em ambos os documentos.`
+      },
+      {
+        id: 'P-IB-02',
+        title: 'Ausência de atualização nas Informações Básicas do Projeto após correções',
+        title_es: 'Falta de actualización en Informaciones Básicas del Proyecto tras correcciones',
+        normativa: 'Norma Operacional CNS nº 001/2013',
+        template: `Atualização das Informações Básicas na Plataforma Brasil: Verificou-se que as correções solicitadas foram realizadas nos arquivos anexos, porém não foram replicadas nas etapas do formulário online da Plataforma Brasil (Informações Básicas do Projeto). Solicita-se editar os campos correspondentes diretamente nas etapas da Plataforma Brasil para que o comprovante gerado reflita os dados atualizados.`
       }
     ]
   },
